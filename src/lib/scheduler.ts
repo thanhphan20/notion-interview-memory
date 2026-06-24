@@ -1,18 +1,34 @@
-const VALID_RATINGS = new Set(['again', 'hard', 'good', 'easy']);
+export type Rating = 'again' | 'hard' | 'good' | 'easy';
+export type ScheduleState = 'new' | 'review';
 
-function toIso(value) {
+export interface Schedule {
+  cardId: number;
+  dueAt: string;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lapses: number;
+  state: ScheduleState;
+  lastReviewedAt: string | null;
+}
+
+const VALID_RATINGS = new Set<string>(['again', 'hard', 'good', 'easy']);
+
+function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function addMinutes(date, minutes) {
+function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
-function addDays(date, days) {
+function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-function createInitialSchedule({ cardId, now = new Date() }) {
+export function createInitialSchedule({ cardId, now = new Date() }: { cardId: number; now?: Date }): Schedule {
   return {
     cardId,
     dueAt: toIso(now),
@@ -23,18 +39,18 @@ function createInitialSchedule({ cardId, now = new Date() }) {
     reps: 0,
     lapses: 0,
     state: 'new',
-    lastReviewedAt: null
+    lastReviewedAt: null,
   };
 }
 
-function getDueCards(schedules, now = new Date()) {
+export function getDueCards<T extends { dueAt: string }>(schedules: T[], now: Date = new Date()): T[] {
   const cutoff = now.getTime();
   return schedules
     .filter((schedule) => new Date(schedule.dueAt).getTime() <= cutoff)
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
-function gradeReview(schedule, rating, reviewedAt = new Date()) {
+export function gradeReview(schedule: Schedule, rating: string, reviewedAt: Date | string = new Date()): Schedule {
   if (!VALID_RATINGS.has(rating)) {
     throw new Error(`Unknown review rating: ${rating}`);
   }
@@ -47,7 +63,7 @@ function gradeReview(schedule, rating, reviewedAt = new Date()) {
   let stability = Number(schedule.stability) || 0.4;
   let difficulty = Number(schedule.difficulty) || 5;
   let scheduledDays = 0;
-  let dueAt;
+  let dueAt: Date;
 
   if (rating === 'again') {
     lapses += 1;
@@ -74,16 +90,10 @@ function gradeReview(schedule, rating, reviewedAt = new Date()) {
     reps,
     lapses,
     state: 'review',
-    lastReviewedAt: reviewDate.toISOString()
+    lastReviewedAt: reviewDate.toISOString(),
   };
 }
 
-function round(value) {
+function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
-
-module.exports = {
-  createInitialSchedule,
-  getDueCards,
-  gradeReview
-};

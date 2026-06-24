@@ -94,13 +94,13 @@ Assumptions:
 - **SEC-003**: The app shall not expose network listeners other than the local HTTP server.
 - **SEC-004**: The app shall not send note content to an AI provider unless the user selects or configures an AI provider that performs network requests.
 
-- **CON-001**: The app shall use Node.js CommonJS modules.
-- **CON-002**: The app shall run on Node.js `>=22.5.0`.
+- **CON-001**: The app shall use TypeScript and ESM/TS module system supported by Bun and Next.js.
+- **CON-002**: The app shall run on Bun `>=1.1.0`.
 - **CON-003**: The app shall avoid mandatory external npm dependencies for v1.
-- **CON-004**: The app shall use `node:sqlite` for local persistence.
-- **CON-005**: The browser UI shall be served as static HTML, CSS, and JavaScript from `src/static`.
-- **CON-006**: Tests shall run through `npm test`.
-- **CON-007**: Tests shall run in a single Node.js process because the sandbox can block test-worker spawning.
+- **CON-004**: The app shall use `bun:sqlite` for local persistence.
+- **CON-005**: The browser UI shall be implemented as a Next.js frontend running on the Bun runtime.
+- **CON-006**: Tests shall run through `bun test`.
+- **CON-007**: Tests shall run using Bun's built-in test runner.
 
 - **GUD-001**: Prefer small modules with single responsibilities.
 - **GUD-002**: Keep business logic testable without the HTTP server.
@@ -108,13 +108,13 @@ Assumptions:
 - **GUD-004**: Preserve user control over scheduling decisions.
 - **GUD-005**: Use explicit JSON contracts for AI provider input and output.
 
-- **PAT-001**: Put pure scheduling behavior in `src/scheduler.js`.
-- **PAT-002**: Put AI parsing and provider creation in `src/ai.js`.
-- **PAT-003**: Put Notion mapping and sync logic in `src/notion.js`.
-- **PAT-004**: Put SQLite schema and persistence methods in `src/database.js`.
-- **PAT-005**: Put route dispatch in `src/api.js`.
-- **PAT-006**: Put HTTP/static serving in `src/http.js`.
-- **PAT-007**: Keep `src/server.js` as the composition entry point only.
+- **PAT-001**: Put pure scheduling behavior in `src/lib/scheduler.ts`.
+- **PAT-002**: Put AI parsing and provider creation in `src/lib/ai.ts`.
+- **PAT-003**: Put Notion mapping and sync logic in `src/lib/notion.ts`.
+- **PAT-004**: Put SQLite schema and persistence methods in `src/lib/database.ts`.
+- **PAT-005**: Put Next.js API route handlers in `src/app/api/`.
+- **PAT-006**: Put Next.js pages and page-level React components in `src/app/`.
+- **PAT-007**: Keep application entry and runtime setup controlled by Next.js configuration.
 
 ## 4. Interfaces & Data Contracts
 
@@ -122,8 +122,8 @@ Assumptions:
 
 | Command | Purpose |
 | --- | --- |
-| `npm start` | Start local server at `http://localhost:4173` unless `PORT` is set. |
-| `npm test` | Run all automated tests through `test/run.js`. |
+| `bun run dev` | Start Next.js local development server at `http://localhost:3000` or configured `PORT`. |
+| `bun test` | Run all automated tests using Bun's native test runner. |
 
 ### 4.2 Environment Variables
 
@@ -263,9 +263,9 @@ Assumptions:
 ## 6. Test Automation Strategy
 
 - **Test Levels**: Unit tests for pure modules, integration tests for persistence and API dispatch, HTTP adapter tests for static and API routing.
-- **Frameworks**: Node.js built-in `node:test`, `node:assert/strict`, and a single-process runner in `test/run.js`.
+- **Frameworks**: Bun's native test runner `bun:test` and `bun:assert`.
 - **Test Data Management**: Use SQLite `:memory:` databases for persistence tests. Do not depend on local `data/app.sqlite`.
-- **CI/CD Integration**: Any future CI pipeline shall run `npm test` from the app root.
+- **CI/CD Integration**: Any future CI pipeline shall run `bun test` from the app root.
 - **Coverage Requirements**: Each new module or behavior shall have automated tests. No numeric coverage threshold is defined for v1.
 - **Performance Testing**: No load testing is required for v1 because the app is single-user local software.
 - **Network Test Policy**: Automated tests shall not require real Notion or AI network calls. Use injected fakes for external integrations.
@@ -300,7 +300,7 @@ The app is local-first to keep personal knowledge private, reduce setup scope, a
 
 ### Technology Platform Dependencies
 
-- **PLT-001**: Node.js `>=22.5.0` - Required for `node:sqlite` and modern runtime APIs.
+- **PLT-001**: Bun `>=1.1.0` - Required for `bun:sqlite` and fast TypeScript execution.
 - **PLT-002**: Modern browser - Required for `fetch`, static JavaScript modules, and standard DOM APIs.
 
 ### Compliance Dependencies
@@ -368,4 +368,4 @@ If AI suggests `hard` and the user selects `good`, the schedule shall use `good`
 - [README.md](./README.md)
 - [agent.md](./agent.md)
 - [Notion API documentation](https://developers.notion.com/)
-- [Node.js SQLite documentation](https://nodejs.org/api/sqlite.html)
+- [Bun SQLite documentation](https://bun.sh/docs/api/sqlite)

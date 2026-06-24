@@ -1,7 +1,5 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-
-const { createInitialSchedule, gradeReview, getDueCards } = require('../src/scheduler');
+import { test, expect } from 'bun:test';
+import { createInitialSchedule, gradeReview, getDueCards } from '../src/lib/scheduler';
 
 test('new approved cards are due immediately', () => {
   const now = new Date('2026-06-24T08:00:00.000Z');
@@ -12,7 +10,7 @@ test('new approved cards are due immediately', () => {
 
   const due = getDueCards(schedules, now);
 
-  assert.deepEqual(due.map((item) => item.cardId), [1]);
+  expect(due.map((item) => item.cardId)).toEqual([1]);
 });
 
 test('again rating keeps a card due soon and records a lapse', () => {
@@ -21,12 +19,12 @@ test('again rating keeps a card due soon and records a lapse', () => {
 
   const next = gradeReview(schedule, 'again', now);
 
-  assert.equal(next.cardId, 7);
-  assert.equal(next.reps, 1);
-  assert.equal(next.lapses, 1);
-  assert.equal(next.state, 'review');
-  assert.equal(next.scheduledDays, 0);
-  assert.equal(next.dueAt, '2026-06-24T08:05:00.000Z');
+  expect(next.cardId).toBe(7);
+  expect(next.reps).toBe(1);
+  expect(next.lapses).toBe(1);
+  expect(next.state).toBe('review');
+  expect(next.scheduledDays).toBe(0);
+  expect(next.dueAt).toBe('2026-06-24T08:05:00.000Z');
 });
 
 test('good rating increases review interval after repeated successful reviews', () => {
@@ -36,9 +34,9 @@ test('good rating increases review interval after repeated successful reviews', 
   const secondReviewAt = new Date('2026-06-25T08:00:00.000Z');
   const second = gradeReview(first, 'good', secondReviewAt);
 
-  assert.equal(first.scheduledDays, 1);
-  assert.equal(first.dueAt, '2026-06-25T08:00:00.000Z');
-  assert.ok(second.scheduledDays > first.scheduledDays);
-  assert.equal(second.reps, 2);
-  assert.equal(second.lapses, 0);
+  expect(first.scheduledDays).toBe(1);
+  expect(first.dueAt).toBe('2026-06-25T08:00:00.000Z');
+  expect(second.scheduledDays).toBeGreaterThan(first.scheduledDays);
+  expect(second.reps).toBe(2);
+  expect(second.lapses).toBe(0);
 });

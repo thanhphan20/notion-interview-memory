@@ -1,7 +1,5 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-
-const { createAiProvider, parseCardDrafts, parseAnswerCritique } = require('../src/ai');
+import { test, expect } from 'bun:test';
+import { createAiProvider, parseCardDrafts, parseAnswerCritique } from '../src/lib/ai';
 
 test('parseCardDrafts accepts strict JSON card arrays and normalizes tags', () => {
   const raw = JSON.stringify({
@@ -17,7 +15,7 @@ test('parseCardDrafts accepts strict JSON card arrays and normalizes tags', () =
 
   const drafts = parseCardDrafts(raw);
 
-  assert.deepEqual(drafts, [
+  expect(drafts).toEqual([
     {
       question: 'Explain database indexing tradeoffs.',
       expectedAnswer: 'Indexes speed reads and slow writes.',
@@ -28,7 +26,7 @@ test('parseCardDrafts accepts strict JSON card arrays and normalizes tags', () =
 });
 
 test('parseCardDrafts rejects malformed provider output', () => {
-  assert.throws(() => parseCardDrafts('{"cards":[{"question":""}]}'), /valid card draft/);
+  expect(() => parseCardDrafts('{"cards":[{"question":""}]}')).toThrow(/valid card draft/);
 });
 
 test('parseAnswerCritique returns structured feedback with missing key points', () => {
@@ -38,7 +36,7 @@ test('parseAnswerCritique returns structured feedback with missing key points', 
     suggestedRating: 'hard'
   }));
 
-  assert.deepEqual(critique, {
+  expect(critique).toEqual({
     summary: 'Good high-level answer.',
     missingKeyPoints: ['write amplification'],
     suggestedRating: 'hard'
@@ -54,7 +52,7 @@ test('createAiProvider supports deterministic offline mode', async () => {
     tags: ['system-design']
   });
 
-  assert.equal(drafts.length, 1);
-  assert.match(drafts[0].question, /CAP theorem/);
-  assert.equal(drafts[0].tags[0], 'system-design');
+  expect(drafts.length).toBe(1);
+  expect(drafts[0].question).toMatch(/CAP theorem/);
+  expect(drafts[0].tags[0]).toBe('system-design');
 });

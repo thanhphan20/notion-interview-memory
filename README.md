@@ -15,11 +15,11 @@ A private localhost app for turning a Notion knowledge database into interview-s
 
 ```powershell
 cd E:\Repository\notion-interview-memory
-npm test
-npm start
+bun test
+bun run dev
 ```
 
-Open `http://localhost:4173`.
+Open `http://localhost:3000`.
 
 ## Configuration
 

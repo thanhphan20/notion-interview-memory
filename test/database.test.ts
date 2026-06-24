@@ -1,7 +1,5 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-
-const { createAppDatabase } = require('../src/database');
+import { test, expect } from 'bun:test';
+import { createAppDatabase } from '../src/lib/database';
 
 test('upsertNote keeps one row per Notion page and updates changed content', () => {
   const db = createAppDatabase(':memory:');
@@ -23,8 +21,9 @@ test('upsertNote keeps one row per Notion page and updates changed content', () 
     notionLastEditedTime: '2026-06-24T09:00:00.000Z'
   });
 
-  assert.equal(first.id, second.id);
-  assert.equal(db.listNotes()[0].content, 'Cache aside and write through');
+  expect(first.id).toBe(second.id);
+  expect(db.listNotes()[0].content).toBe('Cache aside and write through');
+  db.close();
 });
 
 test('draft approval creates a scheduled card and prevents double approval', () => {
@@ -48,9 +47,10 @@ test('draft approval creates a scheduled card and prevents double approval', () 
 
   const card = db.approveDraft(draft.id, new Date('2026-06-24T08:00:00.000Z'));
 
-  assert.equal(card.question, 'What is the tradeoff of an index?');
-  assert.equal(db.listDueCards(new Date('2026-06-24T08:00:00.000Z')).length, 1);
-  assert.throws(() => db.approveDraft(draft.id, new Date('2026-06-24T08:00:00.000Z')), /already handled/);
+  expect(card.question).toBe('What is the tradeoff of an index?');
+  expect(db.listDueCards(new Date('2026-06-24T08:00:00.000Z')).length).toBe(1);
+  expect(() => db.approveDraft(draft.id, new Date('2026-06-24T08:00:00.000Z'))).toThrow(/already handled/);
+  db.close();
 });
 
 test('recordReview stores optional AI feedback and advances schedule', () => {
@@ -80,7 +80,8 @@ test('recordReview stores optional AI feedback and advances schedule', () => {
     reviewedAt: new Date('2026-06-24T08:00:00.000Z')
   });
 
-  assert.equal(review.rating, 'hard');
-  assert.equal(db.listReviews()[0].aiFeedback.summary, 'Mention decoupling explicitly.');
-  assert.equal(db.listDueCards(new Date('2026-06-24T08:00:00.000Z')).length, 0);
+  expect(review.rating).toBe('hard');
+  expect(db.listReviews()[0].aiFeedback.summary).toBe('Mention decoupling explicitly.');
+  expect(db.listDueCards(new Date('2026-06-24T08:00:00.000Z')).length).toBe(0);
+  db.close();
 });

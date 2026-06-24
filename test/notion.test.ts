@@ -1,12 +1,10 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-
-const { buildNotionDatabaseFilter, extractPlainText, mapNotionPageToNote } = require('../src/notion');
+import { test, expect } from 'bun:test';
+import { buildNotionDatabaseFilter, extractPlainText, mapNotionPageToNote } from '../src/lib/notion';
 
 test('buildNotionDatabaseFilter creates an OR filter for selected topics', () => {
   const filter = buildNotionDatabaseFilter('Topic', ['System Design', 'JavaScript']);
 
-  assert.deepEqual(filter, {
+  expect(filter).toEqual({
     or: [
       { property: 'Topic', multi_select: { contains: 'System Design' } },
       { property: 'Topic', multi_select: { contains: 'JavaScript' } }
@@ -23,19 +21,19 @@ test('mapNotionPageToNote extracts title, tags, url, and content', () => {
       Name: { type: 'title', title: [{ plain_text: 'Load Balancing' }] },
       Topic: { type: 'multi_select', multi_select: [{ name: 'System Design' }] }
     }
-  };
+  } as any;
   const blocks = [
     { type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'Layer 4 vs Layer 7.' }] } },
     { type: 'bulleted_list_item', bulleted_list_item: { rich_text: [{ plain_text: 'Health checks matter.' }] } }
-  ];
+  ] as any[];
 
   const note = mapNotionPageToNote(page, blocks, { titleProperty: 'Name', topicProperty: 'Topic' });
 
-  assert.equal(note.notionPageId, 'page-1');
-  assert.equal(note.title, 'Load Balancing');
-  assert.equal(note.content, 'Layer 4 vs Layer 7.\n- Health checks matter.');
-  assert.deepEqual(note.tags, ['System Design']);
-  assert.equal(note.sourceUrl, 'https://notion.so/page-1');
+  expect(note.notionPageId).toBe('page-1');
+  expect(note.title).toBe('Load Balancing');
+  expect(note.content).toBe('Layer 4 vs Layer 7.\n- Health checks matter.');
+  expect(note.tags).toEqual(['System Design']);
+  expect(note.sourceUrl).toBe('https://notion.so/page-1');
 });
 
 test('extractPlainText supports common Notion rich text block types', () => {
@@ -43,7 +41,7 @@ test('extractPlainText supports common Notion rich text block types', () => {
     { type: 'heading_2', heading_2: { rich_text: [{ plain_text: 'Patterns' }] } },
     { type: 'numbered_list_item', numbered_list_item: { rich_text: [{ plain_text: 'Factory' }] } },
     { type: 'code', code: { rich_text: [{ plain_text: 'class Factory {}' }], language: 'typescript' } }
-  ];
+  ] as any[];
 
-  assert.equal(extractPlainText(blocks), '## Patterns\n1. Factory\n```typescript\nclass Factory {}\n```');
+  expect(extractPlainText(blocks)).toBe('## Patterns\n1. Factory\n```typescript\nclass Factory {}\n```');
 });

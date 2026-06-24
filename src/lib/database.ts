@@ -1,25 +1,79 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
-const { createInitialSchedule, getDueCards, gradeReview } = require('./scheduler');
+import { Database } from 'bun:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createInitialSchedule, getDueCards, gradeReview } from './scheduler';
+import type { Schedule } from './scheduler';
+import type { CardDraft } from './ai';
+import type { NotionNote } from './notion';
 
-function createAppDatabase(filename = defaultDatabasePath()) {
+export interface Note {
+  id: number;
+  notionPageId: string;
+  title: string;
+  content: string;
+  sourceUrl: string;
+  tags: string[];
+  notionLastEditedTime: string;
+  syncedAt: string;
+}
+
+export interface Draft {
+  id: number;
+  noteId: number;
+  question: string;
+  expectedAnswer: string;
+  rubric: string[];
+  tags: string[];
+  status: string;
+  createdAt: string;
+}
+
+export interface Card {
+  id: number;
+  noteId: number;
+  sourceDraftId: number | null;
+  question: string;
+  expectedAnswer: string;
+  rubric: string[];
+  tags: string[];
+  createdAt: string;
+}
+
+export interface Review {
+  id: number;
+  cardId: number;
+  userAnswer: string;
+  aiFeedback: any;
+  rating: string;
+  elapsedSeconds: number;
+  reviewedAt: string;
+}
+
+export interface DbStats {
+  totalNotes: number;
+  draftCount: number;
+  cardCount: number;
+  reviewCount: number;
+  dueCount: number;
+}
+
+export function createAppDatabase(filename: string = defaultDatabasePath()): AppDatabase {
   if (filename !== ':memory:') {
     fs.mkdirSync(path.dirname(filename), { recursive: true });
   }
-  const sqlite = new DatabaseSync(filename);
-  sqlite.exec('PRAGMA foreign_keys = ON');
+  const sqlite = new Database(filename);
+  sqlite.run('PRAGMA foreign_keys = ON');
   migrate(sqlite);
   return new AppDatabase(sqlite);
 }
 
-function defaultDatabasePath() {
+function defaultDatabasePath(): string {
   const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
   return path.join(dataDir, 'app.sqlite');
 }
 
-function migrate(db) {
-  db.exec(`
+function migrate(db: Database): void {
+  db.run(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -83,21 +137,23 @@ function migrate(db) {
   `);
 }
 
-class AppDatabase {
-  constructor(db) {
+export class AppDatabase {
+  db: Database;
+
+  constructor(db: Database) {
     this.db = db;
   }
 
-  close() {
+  close(): void {
     this.db.close();
   }
 
-  getSetting(key) {
-    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  getSetting<T>(key: string): T | undefined {
+    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
     return row ? JSON.parse(row.value) : undefined;
   }
 
-  setSetting(key, value) {
+  setSetting<T>(key: string, value: T): void {
     this.db.prepare(`
       INSERT INTO settings (key, value)
       VALUES (?, ?)
@@ -105,7 +161,7 @@ class AppDatabase {
     `).run(key, JSON.stringify(value));
   }
 
-  upsertNote(note) {
+  upsertNote(note: NotionNote | { notionPageId: string; title: string; content: string; sourceUrl?: string; tags?: string[]; notionLastEditedTime?: string }): Note {
     const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO notes (notion_page_id, title, content, source_url, tags_json, notion_last_edited_time, synced_at)
@@ -126,30 +182,30 @@ class AppDatabase {
       note.notionLastEditedTime || now,
       now
     );
-    return this.getNoteByNotionPageId(note.notionPageId);
+    return this.getNoteByNotionPageId(note.notionPageId)!;
   }
 
-  getNoteByNotionPageId(notionPageId) {
-    const row = this.db.prepare('SELECT * FROM notes WHERE notion_page_id = ?').get(notionPageId);
+  getNoteByNotionPageId(notionPageId: string): Note | undefined {
+    const row = this.db.prepare('SELECT * FROM notes WHERE notion_page_id = ?').get(notionPageId) as any;
     return row ? mapNote(row) : undefined;
   }
 
-  getNote(id) {
-    const row = this.db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
+  getNote(id: number): Note | undefined {
+    const row = this.db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as any;
     return row ? mapNote(row) : undefined;
   }
 
-  listNotes() {
-    return this.db.prepare('SELECT * FROM notes ORDER BY synced_at DESC, id DESC').all().map(mapNote);
+  listNotes(): Note[] {
+    return (this.db.prepare('SELECT * FROM notes ORDER BY synced_at DESC, id DESC').all() as any[]).map(mapNote);
   }
 
-  createDrafts(noteId, drafts) {
+  createDrafts(noteId: number, drafts: CardDraft[]): Draft[] {
     const now = new Date().toISOString();
     const insert = this.db.prepare(`
       INSERT INTO card_drafts (note_id, question, expected_answer, rubric_json, tags_json, status, created_at)
       VALUES (?, ?, ?, ?, ?, 'draft', ?)
     `);
-    const created = [];
+    const created: Draft[] = [];
     this.withTransaction(() => {
       for (const draft of drafts) {
         const result = insert.run(
@@ -159,30 +215,30 @@ class AppDatabase {
           JSON.stringify(draft.rubric || []),
           JSON.stringify(draft.tags || []),
           now
-        );
-        created.push(this.getDraft(Number(result.lastInsertRowid)));
+        ) as { lastInsertRowid: number };
+        created.push(this.getDraft(Number(result.lastInsertRowid))!);
       }
     });
     return created;
   }
 
-  getDraft(id) {
-    const row = this.db.prepare('SELECT * FROM card_drafts WHERE id = ?').get(id);
+  getDraft(id: number): Draft | undefined {
+    const row = this.db.prepare('SELECT * FROM card_drafts WHERE id = ?').get(id) as any;
     return row ? mapDraft(row) : undefined;
   }
 
-  listDrafts(status = 'draft') {
-    return this.db.prepare('SELECT * FROM card_drafts WHERE status = ? ORDER BY created_at DESC, id DESC')
-      .all(status)
+  listDrafts(status: string = 'draft'): Draft[] {
+    return (this.db.prepare('SELECT * FROM card_drafts WHERE status = ? ORDER BY created_at DESC, id DESC')
+      .all(status) as any[])
       .map(mapDraft);
   }
 
-  approveDraft(draftId, now = new Date()) {
+  approveDraft(draftId: number, now: Date = new Date()): Card {
     const draft = this.getDraft(draftId);
     if (!draft) throw new Error(`Draft not found: ${draftId}`);
     if (draft.status !== 'draft') throw new Error('Draft is already handled.');
 
-    let card;
+    let card: Card;
     this.withTransaction(() => {
       const result = this.db.prepare(`
         INSERT INTO cards (note_id, source_draft_id, question, expected_answer, rubric_json, tags_json, created_at)
@@ -195,37 +251,37 @@ class AppDatabase {
         JSON.stringify(draft.rubric),
         JSON.stringify(draft.tags),
         now.toISOString()
-      );
+      ) as { lastInsertRowid: number };
       this.db.prepare('UPDATE card_drafts SET status = ? WHERE id = ?').run('approved', draft.id);
-      card = this.getCard(Number(result.lastInsertRowid));
+      card = this.getCard(Number(result.lastInsertRowid))!;
       this.saveSchedule(createInitialSchedule({ cardId: card.id, now }));
     });
-    return card;
+    return card!;
   }
 
-  rejectDraft(draftId) {
+  rejectDraft(draftId: number): Draft {
     const draft = this.getDraft(draftId);
     if (!draft) throw new Error(`Draft not found: ${draftId}`);
     if (draft.status !== 'draft') throw new Error('Draft is already handled.');
     this.db.prepare('UPDATE card_drafts SET status = ? WHERE id = ?').run('rejected', draftId);
-    return this.getDraft(draftId);
+    return this.getDraft(draftId)!;
   }
 
-  getCard(id) {
-    const row = this.db.prepare('SELECT * FROM cards WHERE id = ?').get(id);
+  getCard(id: number): Card | undefined {
+    const row = this.db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as any;
     return row ? mapCard(row) : undefined;
   }
 
-  listCards() {
-    return this.db.prepare('SELECT * FROM cards ORDER BY created_at DESC, id DESC').all().map(mapCard);
+  listCards(): Card[] {
+    return (this.db.prepare('SELECT * FROM cards ORDER BY created_at DESC, id DESC').all() as any[]).map(mapCard);
   }
 
-  getSchedule(cardId) {
-    const row = this.db.prepare('SELECT * FROM schedules WHERE card_id = ?').get(cardId);
+  getSchedule(cardId: number): Schedule | undefined {
+    const row = this.db.prepare('SELECT * FROM schedules WHERE card_id = ?').get(cardId) as any;
     return row ? mapSchedule(row) : undefined;
   }
 
-  saveSchedule(schedule) {
+  saveSchedule(schedule: Schedule): void {
     this.db.prepare(`
       INSERT INTO schedules (
         card_id, due_at, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_reviewed_at
@@ -255,7 +311,7 @@ class AppDatabase {
     );
   }
 
-  listDueCards(now = new Date()) {
+  listDueCards(now: Date = new Date()): any[] {
     const rows = this.db.prepare(`
       SELECT
         cards.*,
@@ -274,7 +330,7 @@ class AppDatabase {
       JOIN cards ON cards.id = schedules.card_id
       JOIN notes ON notes.id = cards.note_id
       ORDER BY schedules.due_at ASC
-    `).all();
+    `).all() as any[];
 
     return getDueCards(rows.map((row) => ({
       ...mapCard(row),
@@ -286,7 +342,14 @@ class AppDatabase {
     })), now);
   }
 
-  recordReview({ cardId, userAnswer, aiFeedback, rating, elapsedSeconds = 0, reviewedAt = new Date() }) {
+  recordReview({ cardId, userAnswer, aiFeedback, rating, elapsedSeconds = 0, reviewedAt = new Date() }: {
+    cardId: number;
+    userAnswer: string;
+    aiFeedback?: any;
+    rating: string;
+    elapsedSeconds?: number;
+    reviewedAt?: Date | string;
+  }): Review {
     const card = this.getCard(cardId);
     if (!card) throw new Error(`Card not found: ${cardId}`);
     const schedule = this.getSchedule(cardId);
@@ -294,7 +357,7 @@ class AppDatabase {
     const reviewedDate = reviewedAt instanceof Date ? reviewedAt : new Date(reviewedAt);
     const nextSchedule = gradeReview(schedule, rating, reviewedDate);
 
-    let review;
+    let review: Review;
     this.withTransaction(() => {
       const result = this.db.prepare(`
         INSERT INTO reviews (card_id, user_answer, ai_feedback_json, rating, elapsed_seconds, reviewed_at)
@@ -306,45 +369,45 @@ class AppDatabase {
         rating,
         elapsedSeconds,
         reviewedDate.toISOString()
-      );
+      ) as { lastInsertRowid: number };
       this.saveSchedule(nextSchedule);
-      review = this.getReview(Number(result.lastInsertRowid));
+      review = this.getReview(Number(result.lastInsertRowid))!;
     });
-    return review;
+    return review!;
   }
 
-  getReview(id) {
-    const row = this.db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+  getReview(id: number): Review | undefined {
+    const row = this.db.prepare('SELECT * FROM reviews WHERE id = ?').get(id) as any;
     return row ? mapReview(row) : undefined;
   }
 
-  listReviews() {
-    return this.db.prepare('SELECT * FROM reviews ORDER BY reviewed_at DESC, id DESC').all().map(mapReview);
+  listReviews(): Review[] {
+    return (this.db.prepare('SELECT * FROM reviews ORDER BY reviewed_at DESC, id DESC').all() as any[]).map(mapReview);
   }
 
-  stats(now = new Date()) {
-    const totalNotes = this.db.prepare('SELECT COUNT(*) AS count FROM notes').get().count;
-    const draftCount = this.db.prepare("SELECT COUNT(*) AS count FROM card_drafts WHERE status = 'draft'").get().count;
-    const cardCount = this.db.prepare('SELECT COUNT(*) AS count FROM cards').get().count;
-    const reviewCount = this.db.prepare('SELECT COUNT(*) AS count FROM reviews').get().count;
+  stats(now: Date = new Date()): DbStats {
+    const totalNotes = (this.db.prepare('SELECT COUNT(*) AS count FROM notes').get() as any).count;
+    const draftCount = (this.db.prepare("SELECT COUNT(*) AS count FROM card_drafts WHERE status = 'draft'").get() as any).count;
+    const cardCount = (this.db.prepare('SELECT COUNT(*) AS count FROM cards').get() as any).count;
+    const reviewCount = (this.db.prepare('SELECT COUNT(*) AS count FROM reviews').get() as any).count;
     const dueCount = this.listDueCards(now).length;
     return { totalNotes, draftCount, cardCount, reviewCount, dueCount };
   }
 
-  withTransaction(fn) {
-    this.db.exec('BEGIN');
+  withTransaction<T>(fn: () => T): T {
+    this.db.run('BEGIN');
     try {
       const result = fn();
-      this.db.exec('COMMIT');
+      this.db.run('COMMIT');
       return result;
     } catch (error) {
-      this.db.exec('ROLLBACK');
+      this.db.run('ROLLBACK');
       throw error;
     }
   }
 }
 
-function mapNote(row) {
+function mapNote(row: any): Note {
   return {
     id: row.id,
     notionPageId: row.notion_page_id,
@@ -357,7 +420,7 @@ function mapNote(row) {
   };
 }
 
-function mapDraft(row) {
+function mapDraft(row: any): Draft {
   return {
     id: row.id,
     noteId: row.note_id,
@@ -370,7 +433,7 @@ function mapDraft(row) {
   };
 }
 
-function mapCard(row) {
+function mapCard(row: any): Card {
   return {
     id: row.id,
     noteId: row.note_id,
@@ -383,7 +446,7 @@ function mapCard(row) {
   };
 }
 
-function mapSchedule(row) {
+function mapSchedule(row: any): Schedule {
   return {
     cardId: row.card_id,
     dueAt: row.due_at,
@@ -398,7 +461,7 @@ function mapSchedule(row) {
   };
 }
 
-function mapReview(row) {
+function mapReview(row: any): Review {
   return {
     id: row.id,
     cardId: row.card_id,
@@ -409,7 +472,3 @@ function mapReview(row) {
     reviewedAt: row.reviewed_at
   };
 }
-
-module.exports = {
-  createAppDatabase
-};
