@@ -1,0 +1,13 @@
+{
+  "name": "notion-interview-memory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --no-warnings src/server.js",
+    "test": "node --no-warnings test/run.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

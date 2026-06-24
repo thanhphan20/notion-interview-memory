@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Interview Memory</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="sidebar">
+        <div>
+          <h1>Interview Memory</h1>
+          <p class="muted">Notion-powered spaced interview practice</p>
+        </div>
+        <nav class="nav">
+          <button data-view="practice" class="active">Practice</button>
+          <button data-view="drafts">Drafts</button>
+          <button data-view="notes">Notes</button>
+          <button data-view="history">History</button>
+          <button data-view="settings">Settings</button>
+        </nav>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <div class="metric">
+            <span id="dueCount">0</span>
+            <small>Due</small>
+          </div>
+          <div class="metric">
+            <span id="draftCount">0</span>
+            <small>Drafts</small>
+          </div>
+          <div class="metric">
+            <span id="reviewCount">0</span>
+            <small>Reviews</small>
+          </div>
+          <button id="refreshButton" class="icon-button" title="Refresh">Refresh</button>
+        </header>
+
+        <section id="status" class="status" hidden></section>
+
+        <section id="practice" class="view active">
+          <div class="section-heading">
+            <div>
+              <h2>Interview Practice</h2>
+              <p class="muted">Answer due cards aloud or in writing, then self-grade.</p>
+            </div>
+          </div>
+          <article id="practiceCard" class="work-surface"></article>
+        </section>
+
+        <section id="drafts" class="view">
+          <div class="section-heading">
+            <div>
+              <h2>Draft Approval</h2>
+              <p class="muted">Generated questions only enter review after approval.</p>
+            </div>
+          </div>
+          <div id="draftList" class="stack"></div>
+        </section>
+
+        <section id="notes" class="view">
+          <div class="section-heading">
+            <div>
+              <h2>Notion Notes</h2>
+              <p class="muted">Sync selected topics, then generate interview questions.</p>
+            </div>
+            <button id="syncButton">Sync Notion</button>
+          </div>
+          <div id="noteList" class="stack"></div>
+        </section>
+
+        <section id="history" class="view">
+          <div class="section-heading">
+            <div>
+              <h2>Review History</h2>
+              <p class="muted">Recent answers, ratings, and feedback.</p>
+            </div>
+          </div>
+          <div id="historyList" class="stack"></div>
+        </section>
+
+        <section id="settings" class="view">
+          <div class="section-heading">
+            <div>
+              <h2>Settings</h2>
+              <p class="muted">Local-only configuration for Notion and AI providers.</p>
+            </div>
+          </div>
+          <form id="settingsForm" class="settings-grid">
+            <label>Notion token <input name="token" type="password" autocomplete="off"></label>
+            <label>Notion database ID <input name="databaseId" autocomplete="off"></label>
+            <label>Title property <input name="titleProperty" value="Name"></label>
+            <label>Topic property <input name="topicProperty" value="Topic"></label>
+            <label>Topic filters <input name="topics" placeholder="System Design,JavaScript"></label>
+            <label>AI provider
+              <select name="provider">
+                <option value="offline">Offline deterministic</option>
+                <option value="openai-compatible">OpenAI-compatible</option>
+              </select>
+            </label>
+            <label>AI API key <input name="apiKey" type="password" autocomplete="off"></label>
+            <label>AI base URL <input name="baseUrl" placeholder="https://api.openai.com/v1"></label>
+            <label>AI model <input name="model" placeholder="gpt-4.1-mini"></label>
+            <button type="submit">Save Settings</button>
+          </form>
+        </section>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

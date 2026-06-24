@@ -1,0 +1,371 @@
+---
+title: Notion Interview Memory Application Specification
+version: 1.0
+date_created: 2026-06-24
+last_updated: 2026-06-24
+owner: Local project owner
+tags: [architecture, design, app, notion, spaced-repetition, interview-practice]
+---
+
+# Introduction
+
+This specification defines the requirements, constraints, interfaces, data contracts, and validation criteria for the Notion Interview Memory application. The application is a private local web app that converts selected Notion knowledge notes into interview-style open-recall practice cards, schedules reviews with a spaced-repetition algorithm, and optionally uses AI providers for draft generation and answer critique.
+
+## 1. Purpose & Scope
+
+The purpose of this specification is to give humans and AI agents a complete, unambiguous source of truth for maintaining and extending the Notion Interview Memory application.
+
+The scope includes:
+
+- Local web app behavior.
+- Notion database synchronization.
+- AI-assisted card generation.
+- AI-assisted answer critique.
+- Draft approval workflow.
+- SQLite persistence.
+- Interview practice and review scheduling.
+- API contracts used by the static browser UI.
+- Testing and validation expectations.
+
+The scope excludes:
+
+- Hosted multi-user SaaS behavior.
+- Account management.
+- Billing.
+- Cloud deployment.
+- Multi-device synchronization.
+- Writing review state back to Notion.
+
+Intended audience:
+
+- AI coding agents.
+- Human maintainers.
+- Test automation agents.
+- Documentation agents.
+
+Assumptions:
+
+- The app is single-user and private.
+- The app runs on the user's local machine.
+- Notion is the source of raw learning notes.
+- SQLite is the source of learning state, review state, and scheduling state.
+
+## 2. Definitions
+
+| Term | Definition |
+| --- | --- |
+| AI | Artificial Intelligence. In this app, an external or offline provider that generates card drafts or critiques answers. |
+| AI Provider | A module that implements the provider-neutral generation and critique contract. |
+| Card | An approved open-recall study item used in interview practice. |
+| Draft | An AI-generated candidate card that has not yet been approved or rejected. |
+| FSRS | Free Spaced Repetition Scheduler. In this app, the scheduling behavior is FSRS-style and tracks stability, difficulty, reps, lapses, due date, and rating history. |
+| Notion Database | The user's source database containing interview, system design, programming, language, and design pattern notes. |
+| Note | A local SQLite record synced from one Notion page. |
+| Open Recall | A review format where the user answers in their own words before seeing the expected answer. |
+| Review | A completed practice attempt with user answer, rating, optional AI feedback, elapsed time, and timestamp. |
+| Self-grade | The user's final review rating: `again`, `hard`, `good`, or `easy`. |
+| SQLite | Local embedded relational database used for durable state. |
+
+## 3. Requirements, Constraints & Guidelines
+
+- **REQ-001**: The app shall run as a local localhost web application.
+- **REQ-002**: The app shall sync pages from exactly one configured Notion database for v1.
+- **REQ-003**: The app shall support selected topic filtering during Notion sync.
+- **REQ-004**: The app shall persist synced notes locally in SQLite.
+- **REQ-005**: The app shall generate open-recall card drafts from synced notes.
+- **REQ-006**: The app shall keep generated drafts out of review until approved.
+- **REQ-007**: The app shall allow users to approve draft cards.
+- **REQ-008**: The app shall allow users to reject draft cards.
+- **REQ-009**: The app shall create a schedule when a draft is approved.
+- **REQ-010**: The app shall show due cards in interview practice mode.
+- **REQ-011**: The app shall allow users to type an answer before grading.
+- **REQ-012**: The app shall optionally request AI critique for a user answer.
+- **REQ-013**: The app shall store AI critique with the review when provided.
+- **REQ-014**: The app shall use the user's final self-grade as the only scheduling input.
+- **REQ-015**: The app shall support ratings `again`, `hard`, `good`, and `easy`.
+- **REQ-016**: The app shall update the schedule after every completed review.
+- **REQ-017**: The app shall expose a review history.
+- **REQ-018**: The app shall provide an offline deterministic AI provider for local testing.
+- **REQ-019**: The app shall provide an OpenAI-compatible provider mode for real AI generation and critique.
+- **REQ-020**: The app shall keep raw Notion content and review state separate.
+
+- **SEC-001**: The app shall not commit real Notion tokens, AI API keys, or SQLite data files.
+- **SEC-002**: Secrets shall be stored only in local settings, local environment variables, or local ignored files.
+- **SEC-003**: The app shall not expose network listeners other than the local HTTP server.
+- **SEC-004**: The app shall not send note content to an AI provider unless the user selects or configures an AI provider that performs network requests.
+
+- **CON-001**: The app shall use Node.js CommonJS modules.
+- **CON-002**: The app shall run on Node.js `>=22.5.0`.
+- **CON-003**: The app shall avoid mandatory external npm dependencies for v1.
+- **CON-004**: The app shall use `node:sqlite` for local persistence.
+- **CON-005**: The browser UI shall be served as static HTML, CSS, and JavaScript from `src/static`.
+- **CON-006**: Tests shall run through `npm test`.
+- **CON-007**: Tests shall run in a single Node.js process because the sandbox can block test-worker spawning.
+
+- **GUD-001**: Prefer small modules with single responsibilities.
+- **GUD-002**: Keep business logic testable without the HTTP server.
+- **GUD-003**: Keep API dispatch testable without browser automation.
+- **GUD-004**: Preserve user control over scheduling decisions.
+- **GUD-005**: Use explicit JSON contracts for AI provider input and output.
+
+- **PAT-001**: Put pure scheduling behavior in `src/scheduler.js`.
+- **PAT-002**: Put AI parsing and provider creation in `src/ai.js`.
+- **PAT-003**: Put Notion mapping and sync logic in `src/notion.js`.
+- **PAT-004**: Put SQLite schema and persistence methods in `src/database.js`.
+- **PAT-005**: Put route dispatch in `src/api.js`.
+- **PAT-006**: Put HTTP/static serving in `src/http.js`.
+- **PAT-007**: Keep `src/server.js` as the composition entry point only.
+
+## 4. Interfaces & Data Contracts
+
+### 4.1 Runtime Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm start` | Start local server at `http://localhost:4173` unless `PORT` is set. |
+| `npm test` | Run all automated tests through `test/run.js`. |
+
+### 4.2 Environment Variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `PORT` | No | Local HTTP port. Default: `4173`. |
+| `DATA_DIR` | No | Directory for SQLite data. Default: `./data`. |
+| `NOTION_TOKEN` | For Notion sync if not configured in UI | Notion integration token. |
+| `NOTION_DATABASE_ID` | For Notion sync if not configured in UI | Source database ID. |
+| `NOTION_TOPIC_PROPERTY` | No | Topic property used for filtering. Default: `Topic`. |
+| `NOTION_TOPIC_FILTERS` | No | Comma-separated topic filters. |
+| `AI_PROVIDER` | No | `offline` or `openai-compatible`. Default behavior should be safe for local use. |
+| `AI_API_KEY` | For network AI provider | API key for OpenAI-compatible provider. |
+| `AI_BASE_URL` | No | Chat completions base URL. |
+| `AI_MODEL` | No | Model name for OpenAI-compatible provider. |
+
+### 4.3 AI Provider Contract
+
+```js
+{
+  async generateCards(note) {
+    return CardDraft[];
+  },
+  async critiqueAnswer({ card, answer }) {
+    return AnswerCritique;
+  }
+}
+```
+
+### 4.4 Note Contract
+
+```json
+{
+  "id": 1,
+  "notionPageId": "page-id",
+  "title": "Load Balancing",
+  "content": "Layer 4 vs Layer 7...",
+  "sourceUrl": "https://notion.so/page-id",
+  "tags": ["System Design"],
+  "notionLastEditedTime": "2026-06-24T08:00:00.000Z",
+  "syncedAt": "2026-06-24T08:05:00.000Z"
+}
+```
+
+### 4.5 Card Draft Contract
+
+```json
+{
+  "id": 1,
+  "noteId": 1,
+  "question": "Explain load balancing as you would in an interview.",
+  "expectedAnswer": "Load balancing distributes traffic across healthy backends.",
+  "rubric": ["Defines load balancing", "Mentions health checks", "Explains tradeoffs"],
+  "tags": ["System Design"],
+  "status": "draft",
+  "createdAt": "2026-06-24T08:10:00.000Z"
+}
+```
+
+### 4.6 Card Contract
+
+```json
+{
+  "id": 1,
+  "noteId": 1,
+  "sourceDraftId": 1,
+  "question": "Explain load balancing as you would in an interview.",
+  "expectedAnswer": "Load balancing distributes traffic across healthy backends.",
+  "rubric": ["Defines load balancing", "Mentions health checks", "Explains tradeoffs"],
+  "tags": ["System Design"],
+  "createdAt": "2026-06-24T08:12:00.000Z"
+}
+```
+
+### 4.7 Schedule Contract
+
+```json
+{
+  "cardId": 1,
+  "dueAt": "2026-06-25T08:12:00.000Z",
+  "stability": 1,
+  "difficulty": 4.85,
+  "elapsedDays": 0,
+  "scheduledDays": 1,
+  "reps": 1,
+  "lapses": 0,
+  "state": "review",
+  "lastReviewedAt": "2026-06-24T08:12:00.000Z"
+}
+```
+
+### 4.8 Review Contract
+
+```json
+{
+  "id": 1,
+  "cardId": 1,
+  "userAnswer": "It distributes requests across servers and checks health.",
+  "aiFeedback": {
+    "summary": "Good answer. Add tradeoffs.",
+    "missingKeyPoints": ["tradeoffs"],
+    "suggestedRating": "hard"
+  },
+  "rating": "good",
+  "elapsedSeconds": 45,
+  "reviewedAt": "2026-06-24T08:20:00.000Z"
+}
+```
+
+### 4.9 HTTP API
+
+| Method | Path | Request Body | Response |
+| --- | --- | --- | --- |
+| `GET` | `/api/state` | None | Stats, notes, drafts, cards, due cards, reviews. |
+| `GET` | `/api/settings` | None | Local Notion and AI settings. |
+| `POST` | `/api/settings` | `{ notion, ai }` | `{ saved: true }`. |
+| `POST` | `/api/notion/sync` | Optional Notion config override | Imported notes. |
+| `POST` | `/api/notes/:id/generate` | Empty object | Generated drafts. |
+| `POST` | `/api/drafts/:id/approve` | Optional `{ now }` | Approved card. |
+| `POST` | `/api/drafts/:id/reject` | Empty object | Rejected draft. |
+| `POST` | `/api/cards/:id/critique` | `{ answer }` | AI critique. |
+| `POST` | `/api/cards/:id/review` | `{ answer, aiFeedback, rating, elapsedSeconds, reviewedAt }` | Review and updated schedule. |
+
+## 5. Acceptance Criteria
+
+- **AC-001**: Given a configured Notion database, When the user syncs selected topics, Then the app stores matching pages as local notes.
+- **AC-002**: Given a synced note, When the user generates drafts, Then the app creates draft cards with question, expected answer, rubric, and tags.
+- **AC-003**: Given a draft card, When the user approves it, Then the app creates a card and an initial schedule due immediately.
+- **AC-004**: Given a draft card, When the user rejects it, Then the app shall not create a card or schedule.
+- **AC-005**: Given a due card, When the user opens practice mode, Then the app shows the question before the expected answer.
+- **AC-006**: Given a written answer, When the user requests AI critique, Then the app returns structured critique without automatically grading the review.
+- **AC-007**: Given a written answer and selected self-grade, When the user submits review, Then the app stores the review and updates the schedule.
+- **AC-008**: Given AI suggests a rating, When the user selects a different self-grade, Then the user-selected grade controls scheduling.
+- **AC-009**: Given the app restarts, When state is loaded, Then notes, drafts, cards, schedules, and reviews remain available from SQLite.
+- **AC-010**: Given no AI API key is configured, When the offline provider is selected, Then the app can still generate deterministic drafts and critique answers.
+
+## 6. Test Automation Strategy
+
+- **Test Levels**: Unit tests for pure modules, integration tests for persistence and API dispatch, HTTP adapter tests for static and API routing.
+- **Frameworks**: Node.js built-in `node:test`, `node:assert/strict`, and a single-process runner in `test/run.js`.
+- **Test Data Management**: Use SQLite `:memory:` databases for persistence tests. Do not depend on local `data/app.sqlite`.
+- **CI/CD Integration**: Any future CI pipeline shall run `npm test` from the app root.
+- **Coverage Requirements**: Each new module or behavior shall have automated tests. No numeric coverage threshold is defined for v1.
+- **Performance Testing**: No load testing is required for v1 because the app is single-user local software.
+- **Network Test Policy**: Automated tests shall not require real Notion or AI network calls. Use injected fakes for external integrations.
+
+## 7. Rationale & Context
+
+The product goal is long-term interview memory, not passive note browsing. Open-recall interview practice is prioritized because interview performance requires explaining concepts in the user's own words. Draft approval is required because AI-generated cards can be incorrect, vague, duplicated, or misaligned with the user's intent. The review schedule is stored locally because Notion is optimized for notes, not review history or spaced-repetition state.
+
+The app is local-first to keep personal knowledge private, reduce setup scope, and avoid account management. The AI layer is provider-neutral so the user can start offline, use OpenAI-compatible APIs, or add other providers later without rewriting review logic.
+
+## 8. Dependencies & External Integrations
+
+### External Systems
+
+- **EXT-001**: Notion API - Required for reading selected pages from the configured Notion database.
+- **EXT-002**: OpenAI-compatible Chat Completions API - Optional network AI provider for card generation and answer critique.
+
+### Third-Party Services
+
+- **SVC-001**: Notion - Must support database query and block children retrieval for shared pages.
+- **SVC-002**: AI Provider - Must accept chat-style prompts and return JSON-compatible text for generation and critique workflows.
+
+### Infrastructure Dependencies
+
+- **INF-001**: Local filesystem - Required for SQLite database storage and static asset serving.
+- **INF-002**: Local HTTP loopback - Required for browser access at localhost.
+
+### Data Dependencies
+
+- **DAT-001**: Notion database pages - Source note data with title, content blocks, topic tags, URL, and last edited timestamp.
+- **DAT-002**: SQLite database file - Local durable data store for notes, drafts, cards, schedules, reviews, and settings.
+
+### Technology Platform Dependencies
+
+- **PLT-001**: Node.js `>=22.5.0` - Required for `node:sqlite` and modern runtime APIs.
+- **PLT-002**: Modern browser - Required for `fetch`, static JavaScript modules, and standard DOM APIs.
+
+### Compliance Dependencies
+
+- **COM-001**: Personal data handling - Notes may contain sensitive personal learning data; agents shall avoid uploading, logging, or committing private content unless explicitly required by the user.
+
+## 9. Examples & Edge Cases
+
+### 9.1 AI Card Generation Output
+
+```json
+{
+  "cards": [
+    {
+      "question": "Explain database indexing tradeoffs.",
+      "expectedAnswer": "Indexes improve read performance but add write cost and storage overhead.",
+      "rubric": ["Mentions read speed", "Mentions write cost", "Mentions storage overhead"],
+      "tags": ["Database"]
+    }
+  ]
+}
+```
+
+### 9.2 AI Critique Output
+
+```json
+{
+  "summary": "The answer defines the concept but misses the operational tradeoff.",
+  "missingKeyPoints": ["write amplification", "storage overhead"],
+  "suggestedRating": "hard"
+}
+```
+
+### 9.3 Empty Notion Page
+
+If a Notion page has a title but no extractable content, the app may sync it as a note. AI generation should still validate output and reject malformed drafts before saving.
+
+### 9.4 Duplicate Notion Sync
+
+If the same Notion page is synced more than once, the app shall update the existing note row by `notionPageId` and shall not create duplicate notes.
+
+### 9.5 Double Approval
+
+If a draft is already approved or rejected, a second approval attempt shall fail with an explicit error.
+
+### 9.6 AI Rating Disagreement
+
+If AI suggests `hard` and the user selects `good`, the schedule shall use `good`.
+
+## 10. Validation Criteria
+
+- `npm test` shall pass with all tests green.
+- The app shall start with `npm start`.
+- `GET /` shall return the static app shell.
+- `GET /api/state` shall return valid JSON with `stats`, `notes`, `drafts`, `cards`, `dueCards`, and `reviews`.
+- Tests shall cover scheduler behavior for new cards, `again`, and repeated successful reviews.
+- Tests shall cover AI output parsing and malformed output rejection.
+- Tests shall cover Notion filter construction and Notion block text extraction.
+- Tests shall cover note upsert, draft approval, schedule creation, review recording, and AI feedback persistence.
+- Tests shall cover API sync, draft generation, approval, critique, and review submission.
+- Tests shall not require real API credentials.
+
+## 11. Related Specifications / Further Reading
+
+- [README.md](./README.md)
+- [agent.md](./agent.md)
+- [Notion API documentation](https://developers.notion.com/)
+- [Node.js SQLite documentation](https://nodejs.org/api/sqlite.html)
