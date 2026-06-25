@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createInitialSchedule, getDueCards, gradeReview } from './scheduler';
 import type { Schedule } from './scheduler';
-import type { CardDraft } from './ai';
+import type { CardDraft, MCQ } from './ai';
 import type { NotionNote } from './notion';
 
 export interface Note {
@@ -47,6 +47,17 @@ export interface Review {
   rating: string;
   elapsedSeconds: number;
   reviewedAt: string;
+}
+
+export interface MCQQuestion {
+  id: number;
+  noteId: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  tags: string[];
+  createdAt: string;
 }
 
 export interface DbStats {
@@ -133,6 +144,17 @@ function migrate(db: Database): void {
       rating TEXT NOT NULL,
       elapsed_seconds INTEGER NOT NULL,
       reviewed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS mcq_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      options_json TEXT NOT NULL,
+      correct_index INTEGER NOT NULL,
+      explanation TEXT NOT NULL,
+      tags_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
   `);
 }
@@ -385,6 +407,41 @@ export class AppDatabase {
     return (this.db.prepare('SELECT * FROM reviews ORDER BY reviewed_at DESC, id DESC').all() as any[]).map(mapReview);
   }
 
+  createMCQs(noteId: number, mcqs: MCQ[]): MCQQuestion[] {
+    const now = new Date().toISOString();
+    const deleteOld = this.db.prepare('DELETE FROM mcq_questions WHERE note_id = ?');
+    const insert = this.db.prepare(`
+      INSERT INTO mcq_questions (note_id, question, options_json, correct_index, explanation, tags_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const created: MCQQuestion[] = [];
+    this.withTransaction(() => {
+      deleteOld.run(noteId);
+      for (const mcq of mcqs) {
+        const result = insert.run(
+          noteId,
+          mcq.question,
+          JSON.stringify(mcq.options),
+          mcq.correctIndex,
+          mcq.explanation,
+          JSON.stringify(mcq.tags || []),
+          now
+        ) as { lastInsertRowid: number };
+        created.push(this.getMCQ(Number(result.lastInsertRowid))!);
+      }
+    });
+    return created;
+  }
+
+  getMCQ(id: number): MCQQuestion | undefined {
+    const row = this.db.prepare('SELECT * FROM mcq_questions WHERE id = ?').get(id) as any;
+    return row ? mapMCQ(row) : undefined;
+  }
+
+  listMCQs(): MCQQuestion[] {
+    return (this.db.prepare('SELECT * FROM mcq_questions ORDER BY created_at DESC, id DESC').all() as any[]).map(mapMCQ);
+  }
+
   stats(now: Date = new Date()): DbStats {
     const totalNotes = (this.db.prepare('SELECT COUNT(*) AS count FROM notes').get() as any).count;
     const draftCount = (this.db.prepare("SELECT COUNT(*) AS count FROM card_drafts WHERE status = 'draft'").get() as any).count;
@@ -470,5 +527,18 @@ function mapReview(row: any): Review {
     rating: row.rating,
     elapsedSeconds: row.elapsed_seconds,
     reviewedAt: row.reviewed_at
+  };
+}
+
+function mapMCQ(row: any): MCQQuestion {
+  return {
+    id: row.id,
+    noteId: row.note_id,
+    question: row.question,
+    options: JSON.parse(row.options_json),
+    correctIndex: row.correct_index,
+    explanation: row.explanation,
+    tags: JSON.parse(row.tags_json),
+    createdAt: row.created_at
   };
 }
