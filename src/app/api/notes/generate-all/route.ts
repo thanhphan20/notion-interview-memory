@@ -12,12 +12,16 @@ export async function POST(request: NextRequest) {
     }
     const aiProvider = createAiProvider(db.getSetting('ai') || {});
     const allDrafts: any[] = [];
+    const allMCQs: any[] = [];
     for (const note of notes) {
-      const generated = await aiProvider.generateCards(note);
-      const saved = db.createDrafts(note.id, generated);
-      allDrafts.push(...saved);
+      const [drafts, mcqs] = await Promise.all([
+        aiProvider.generateCards(note),
+        aiProvider.generateMCQs(note),
+      ]);
+      allDrafts.push(...db.createDrafts(note.id, drafts));
+      allMCQs.push(...db.createMCQs(note.id, mcqs));
     }
-    return NextResponse.json({ drafts: allDrafts });
+    return NextResponse.json({ drafts: allDrafts, mcqs: allMCQs });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   } finally {

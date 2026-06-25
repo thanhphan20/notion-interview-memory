@@ -82,3 +82,38 @@ test('generate-all route creates drafts from all notes', async () => {
   cleanDb.db.prepare('DELETE FROM notes').run();
   cleanDb.close();
 });
+
+test('generate-all route creates MCQs alongside drafts', async () => {
+  const { createAppDatabase } = await import('../src/lib/database');
+  const testDb = createAppDatabase();
+  testDb.setSetting('ai', { provider: 'offline' });
+  testDb.upsertNote({
+    notionPageId: 'mcq-gen-page-1',
+    title: 'MCQ Generation Test',
+    content: 'This content verifies that calling generate-all produces both drafts and MCQ questions.',
+    tags: ['Test'],
+  });
+  testDb.close();
+
+  const mod = await import('../src/app/api/notes/generate-all/route');
+  const req = new NextRequest('http://localhost/api/notes/generate-all', {
+    method: 'POST', body: JSON.stringify({}),
+  });
+  const res = await mod.POST(req);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body).toHaveProperty('mcqs');
+  expect(Array.isArray(body.mcqs)).toBe(true);
+  expect(body.mcqs.length).toBeGreaterThanOrEqual(1);
+  expect(body.mcqs[0]).toHaveProperty('question');
+  expect(body.mcqs[0]).toHaveProperty('options');
+
+  const cleanDb = createAppDatabase();
+  cleanDb.db.prepare('DELETE FROM reviews').run();
+  cleanDb.db.prepare('DELETE FROM schedules').run();
+  cleanDb.db.prepare('DELETE FROM cards').run();
+  cleanDb.db.prepare('DELETE FROM card_drafts').run();
+  cleanDb.db.prepare('DELETE FROM mcq_questions').run();
+  cleanDb.db.prepare('DELETE FROM notes').run();
+  cleanDb.close();
+});
