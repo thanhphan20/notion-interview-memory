@@ -19,6 +19,8 @@ test('state route returns valid JSON', async () => {
   expect(body).toHaveProperty('cards');
   expect(body).toHaveProperty('dueCards');
   expect(body).toHaveProperty('reviews');
+  expect(body).toHaveProperty('mcqs');
+  expect(Array.isArray(body.mcqs)).toBe(true);
 });
 
 test('sync route handles valid request', async () => {
