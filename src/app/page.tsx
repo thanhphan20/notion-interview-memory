@@ -1,21 +1,37 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
+import Toast from '@/components/ui/Toast';
+import PracticeView from '@/components/PracticeView';
+import DraftsView from '@/components/DraftsView';
+import NotesView from '@/components/NotesView';
+import HistoryView from '@/components/HistoryView';
+import SettingsView from '@/components/SettingsView';
+import {
+  USE_MOCK,
+  mockStats,
+  mockCards,
+  mockNotes,
+  mockDrafts,
+  mockReviews,
+  mockSettings,
+} from '@/lib/mock-data';
+
+type ViewType = 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 export default function SPA() {
-  const [view, setView] = useState<'practice' | 'drafts' | 'notes' | 'history' | 'settings'>('practice');
-  const [stats, setStats] = useState({ dueCount: 0, draftCount: 0, reviewCount: 0 });
-  const [notes, setNotes] = useState<any[]>([]);
-  const [drafts, setDrafts] = useState<any[]>([]);
-  const [dueCards, setDueCards] = useState<any[]>([]);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [settings, setSettings] = useState<any>({ notion: {}, ai: { provider: 'offline' } });
-
+  const [view, setView] = useState<ViewType>('practice');
+  const [stats, setStats] = useState(USE_MOCK ? mockStats : { dueCount: 0, draftCount: 0, reviewCount: 0 });
+  const [notes, setNotes] = useState<any[]>(USE_MOCK ? mockNotes : []);
+  const [drafts, setDrafts] = useState<any[]>(USE_MOCK ? mockDrafts : []);
+  const [dueCards, setDueCards] = useState<any[]>(USE_MOCK ? mockCards : []);
+  const [reviews, setReviews] = useState<any[]>(USE_MOCK ? mockReviews : []);
+  const [settings, setSettings] = useState<any>(USE_MOCK ? mockSettings : { notion: {}, ai: { provider: 'offline' } });
   const [status, setStatus] = useState<{ message: string; isError?: boolean } | null>(null);
-
-  // Practice state
-  const [activeCard, setActiveCard] = useState<any>(null);
-  const [activeStartedAt, setActiveStartedAt] = useState<number | null>(null);
+  const [activeCard, setActiveCard] = useState<any>(USE_MOCK ? mockCards[0] : null);
+  const [activeStartedAt, setActiveStartedAt] = useState<number | null>(USE_MOCK ? Date.now() : null);
   const [userAnswer, setUserAnswer] = useState('');
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [aiCritique, setAiCritique] = useState<any>(null);
@@ -34,7 +50,7 @@ export default function SPA() {
     const res = await fetch(path, {
       method: options.method || 'GET',
       headers: { 'content-type': 'application/json' },
-      body: options.body ? JSON.stringify(options.body) : undefined
+      body: options.body ? JSON.stringify(options.body) : undefined,
     });
     const payload = await res.json();
     if (!res.ok) throw new Error(payload.error || 'Request failed.');
@@ -42,6 +58,7 @@ export default function SPA() {
   }
 
   async function loadSettings() {
+    if (USE_MOCK) return;
     try {
       const data = await api('/api/settings');
       setSettings(data);
@@ -50,7 +67,8 @@ export default function SPA() {
     }
   }
 
-  async function loadState() {
+  async function loadState(forceAdvance = false) {
+    if (USE_MOCK) return;
     try {
       const data = await api('/api/state');
       setStats(data.stats);
@@ -58,9 +76,8 @@ export default function SPA() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
-
       if (data.dueCards.length > 0) {
-        if (!activeCard) {
+        if (forceAdvance || !activeCard) {
           setActiveCard(data.dueCards[0]);
           setActiveStartedAt(Date.now());
         }
@@ -81,15 +98,20 @@ export default function SPA() {
         databaseId: target.databaseId.value.trim(),
         titleProperty: target.titleProperty.value.trim() || 'Name',
         topicProperty: target.topicProperty.value.trim() || 'Topic',
-        topics: target.topics.value.split(',').map((t: string) => t.trim()).filter(Boolean)
+        topics: target.topics.value.split(',').map((t: string) => t.trim()).filter(Boolean),
       },
       ai: {
         provider: target.provider.value,
         apiKey: target.apiKey.value.trim(),
         baseUrl: target.baseUrl.value.trim(),
-        model: target.model.value.trim()
-      }
+        model: target.model.value.trim(),
+      },
     };
+    if (USE_MOCK) {
+      setSettings(body as any);
+      triggerStatus('Settings saved.');
+      return;
+    }
     try {
       await api('/api/settings', { method: 'POST', body });
       triggerStatus('Settings saved.');
@@ -100,6 +122,10 @@ export default function SPA() {
   }
 
   async function handleSyncNotion() {
+    if (USE_MOCK) {
+      triggerStatus('Synced 3 notes.');
+      return;
+    }
     triggerStatus('Syncing Notion...');
     try {
       const result = await api('/api/notion/sync', { method: 'POST', body: {} });
@@ -111,6 +137,11 @@ export default function SPA() {
   }
 
   async function handleGenerateDrafts(noteId: number) {
+    if (USE_MOCK) {
+      triggerStatus('Generated 2 drafts from note.');
+      setView('drafts');
+      return;
+    }
     triggerStatus('Generating drafts...');
     try {
       const result = await api(`/api/notes/${noteId}/generate`, { method: 'POST', body: {} });
@@ -123,6 +154,11 @@ export default function SPA() {
   }
 
   async function handleApproveDraft(id: number) {
+    if (USE_MOCK) {
+      setDrafts((prev) => prev.filter((d: any) => d.id !== id));
+      triggerStatus('Draft approved.');
+      return;
+    }
     try {
       await api(`/api/drafts/${id}/approve`, { method: 'POST', body: {} });
       triggerStatus('Draft approved.');
@@ -133,6 +169,11 @@ export default function SPA() {
   }
 
   async function handleRejectDraft(id: number) {
+    if (USE_MOCK) {
+      setDrafts((prev) => prev.filter((d: any) => d.id !== id));
+      triggerStatus('Draft rejected.');
+      return;
+    }
     try {
       await api(`/api/drafts/${id}/reject`, { method: 'POST', body: {} });
       triggerStatus('Draft rejected.');
@@ -147,10 +188,19 @@ export default function SPA() {
       triggerStatus('Write an answer before requesting critique.', true);
       return;
     }
+    if (USE_MOCK) {
+      setAiCritique({
+        summary:
+          'Solid coverage of the main concepts. You clearly understand the fundamental differences. Consider elaborating on specific real-world examples like how Chrome uses multi-process architecture vs how a web server uses threads for handling requests.',
+        suggestedRating: 'good',
+        missingKeyPoints: ['Real-world architecture examples', 'Thread safety mechanisms (mutex, semaphore)'],
+      });
+      return;
+    }
     try {
       const result = await api(`/api/cards/${activeCard.id}/critique`, {
         method: 'POST',
-        body: { answer: userAnswer.trim() }
+        body: { answer: userAnswer.trim() },
       });
       setAiCritique(result.critique);
     } catch (err: any) {
@@ -163,6 +213,22 @@ export default function SPA() {
       triggerStatus('Write an answer before grading the card.', true);
       return;
     }
+    if (USE_MOCK) {
+      setUserAnswer('');
+      setShowAnswerKey(false);
+      setAiCritique(null);
+      const nextCards = dueCards.filter((c: any) => c.id !== activeCard.id);
+      if (nextCards.length > 0) {
+        setActiveCard(nextCards[0]);
+        setActiveStartedAt(Date.now());
+      } else {
+        setActiveCard(null);
+        setActiveStartedAt(null);
+      }
+      setDueCards(nextCards);
+      triggerStatus('Review saved.');
+      return;
+    }
     try {
       await api(`/api/cards/${activeCard.id}/review`, {
         method: 'POST',
@@ -170,8 +236,8 @@ export default function SPA() {
           answer: userAnswer.trim(),
           aiFeedback: aiCritique,
           rating,
-          elapsedSeconds: Math.round((Date.now() - (activeStartedAt || Date.now())) / 1000)
-        }
+          elapsedSeconds: Math.round((Date.now() - (activeStartedAt || Date.now())) / 1000),
+        },
       });
       setUserAnswer('');
       setShowAnswerKey(false);
@@ -179,7 +245,7 @@ export default function SPA() {
       setActiveCard(null);
       setActiveStartedAt(null);
       triggerStatus('Review saved.');
-      await loadState();
+      await loadState(true);
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
@@ -187,241 +253,38 @@ export default function SPA() {
 
   return (
     <main className="shell">
-      <aside className="sidebar">
-        <div>
-          <h1>Interview Memory</h1>
-          <p className="muted">Notion-powered spaced interview practice</p>
-        </div>
-        <nav className="nav">
-          <button onClick={() => setView('practice')} className={view === 'practice' ? 'active' : ''}>Practice</button>
-          <button onClick={() => setView('drafts')} className={view === 'drafts' ? 'active' : ''}>Drafts</button>
-          <button onClick={() => setView('notes')} className={view === 'notes' ? 'active' : ''}>Notes</button>
-          <button onClick={() => setView('history')} className={view === 'history' ? 'active' : ''}>History</button>
-          <button onClick={() => setView('settings')} className={view === 'settings' ? 'active' : ''}>Settings</button>
-        </nav>
-      </aside>
-
+      <Sidebar view={view} onViewChange={setView} />
       <section className="content">
-        <header className="topbar">
-          <div className="metric">
-            <span>{stats.dueCount}</span>
-            <small>Due</small>
-          </div>
-          <div className="metric">
-            <span>{stats.draftCount}</span>
-            <small>Drafts</small>
-          </div>
-          <div className="metric">
-            <span>{stats.reviewCount}</span>
-            <small>Reviews</small>
-          </div>
-          <button onClick={loadState}>Refresh</button>
-        </header>
-
-        {status && (
-          <section className={`status ${status.isError ? 'error' : ''}`}>
-            {status.message}
-          </section>
-        )}
-
+        <TopBar stats={stats} onRefresh={loadState} />
+        {status && <Toast message={status.message} isError={status.isError} />}
         {view === 'practice' && (
-          <section className="view active">
-            <div className="section-heading">
-              <div>
-                <h2>Interview Practice</h2>
-                <p className="muted">Answer due cards aloud or in writing, then self-grade.</p>
-              </div>
-            </div>
-            <article className="work-surface">
-              {activeCard ? (
-                <>
-                  <h3>{activeCard.question}</h3>
-                  <div className="tags">
-                    {activeCard.tags.map((tag: string) => (
-                      <span key={tag} className="tag">{tag}</span>
-                    ))}
-                  </div>
-                  <div className="answer-panel">
-                    <textarea
-                      placeholder="Answer as if an interviewer asked you this question."
-                      value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                    />
-                    <div className="actions">
-                      <button onClick={handleRequestCritique} className="secondary">AI Critique</button>
-                      <button onClick={() => setShowAnswerKey(true)} className="secondary">Show Answer</button>
-                    </div>
-
-                    {showAnswerKey && (
-                      <div id="answerKey">
-                        <h3>Expected Answer</h3>
-                        <p>{activeCard.expectedAnswer}</p>
-                        <h3>Rubric</h3>
-                        <ul className="rubric">
-                          {activeCard.rubric.map((point: string, idx: number) => (
-                            <li key={idx}>{point}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {aiCritique && (
-                      <div className="feedback">
-                        <h3>AI Critique</h3>
-                        <p>{aiCritique.summary}</p>
-                        <p className="muted">Suggested rating: {aiCritique.suggestedRating}</p>
-                        {aiCritique.missingKeyPoints.length > 0 && (
-                          <ul className="rubric">
-                            {aiCritique.missingKeyPoints.map((point: string, idx: number) => (
-                              <li key={idx}>{point}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="actions" style={{ marginTop: '1.5rem' }}>
-                      <button onClick={() => handleSubmitReview('again')} className="danger">Again</button>
-                      <button onClick={() => handleSubmitReview('hard')} className="secondary">Hard</button>
-                      <button onClick={() => handleSubmitReview('good')}>Good</button>
-                      <button onClick={() => handleSubmitReview('easy')}>Easy</button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="muted">No cards are due. Approve drafts or come back when scheduled cards are ready.</p>
-              )}
-            </article>
-          </section>
+          <PracticeView
+            activeCard={activeCard}
+            userAnswer={userAnswer}
+            setUserAnswer={setUserAnswer}
+            showAnswerKey={showAnswerKey}
+            setShowAnswerKey={setShowAnswerKey}
+            aiCritique={aiCritique}
+            onCritique={handleRequestCritique}
+            onReview={handleSubmitReview}
+          />
         )}
-
         {view === 'drafts' && (
-          <section className="view active">
-            <div className="section-heading">
-              <div>
-                <h2>Draft Approval</h2>
-                <p className="muted">Generated questions only enter review after approval.</p>
-              </div>
-            </div>
-            <div className="stack">
-              {drafts.length > 0 ? (
-                drafts.map((draft) => (
-                  <article key={draft.id} className="item">
-                    <h3>{draft.question}</h3>
-                    <p>{draft.expectedAnswer}</p>
-                    <ul className="rubric">
-                      {draft.rubric.map((point: string, idx: number) => (
-                        <li key={idx}>{point}</li>
-                      ))}
-                    </ul>
-                    <div className="tags">
-                      {draft.tags.map((tag: string) => (
-                        <span key={tag} className="tag">{tag}</span>
-                      ))}
-                    </div>
-                    <div className="actions">
-                      <button onClick={() => handleApproveDraft(draft.id)}>Approve</button>
-                      <button onClick={() => handleRejectDraft(draft.id)} className="secondary">Reject</button>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <p className="muted">No pending drafts.</p>
-              )}
-            </div>
-          </section>
+          <DraftsView
+            drafts={drafts}
+            onApprove={handleApproveDraft}
+            onReject={handleRejectDraft}
+          />
         )}
-
         {view === 'notes' && (
-          <section className="view active">
-            <div className="section-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2>Notion Notes</h2>
-                <p className="muted">Sync selected topics, then generate interview questions.</p>
-              </div>
-              <button onClick={handleSyncNotion}>Sync Notion</button>
-            </div>
-            <div className="stack">
-              {notes.length > 0 ? (
-                notes.map((note) => (
-                  <article key={note.id} className="item">
-                    <h3>{note.title}</h3>
-                    <p className="muted">
-                      {note.content.slice(0, 220)}
-                      {note.content.length > 220 ? '...' : ''}
-                    </p>
-                    <div className="tags">
-                      {note.tags.map((tag: string) => (
-                        <span key={tag} className="tag">{tag}</span>
-                      ))}
-                    </div>
-                    <div className="actions">
-                      <button onClick={() => handleGenerateDrafts(note.id)}>Generate Drafts</button>
-                      {note.sourceUrl && (
-                        <a href={note.sourceUrl} target="_blank" rel="noreferrer" style={{ alignSelf: 'center' }}>Open Notion</a>
-                      )}
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <p className="muted">No notes synced yet.</p>
-              )}
-            </div>
-          </section>
+          <NotesView
+            notes={notes}
+            onGenerate={handleGenerateDrafts}
+            onSync={handleSyncNotion}
+          />
         )}
-
-        {view === 'history' && (
-          <section className="view active">
-            <div className="section-heading">
-              <div>
-                <h2>Review History</h2>
-                <p className="muted">Recent answers, ratings, and feedback.</p>
-              </div>
-            </div>
-            <div className="stack">
-              {reviews.length > 0 ? (
-                reviews.map((review) => (
-                  <article key={review.id} className="item">
-                    <h3>{review.rating.toUpperCase()}</h3>
-                    <p>{review.userAnswer}</p>
-                    {review.aiFeedback && <p className="muted">AI: {review.aiFeedback.summary}</p>}
-                    <p className="muted">{new Date(review.reviewedAt).toLocaleString()}</p>
-                  </article>
-                ))
-              ) : (
-                <p className="muted">No reviews yet.</p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {view === 'settings' && (
-          <section className="view active">
-            <div className="section-heading">
-              <div>
-                <h2>Settings</h2>
-                <p className="muted">Local-only configuration for Notion and AI providers.</p>
-              </div>
-            </div>
-            <form onSubmit={handleSaveSettings} className="settings-grid">
-              <label>Notion token <input name="token" type="password" defaultValue={settings.notion?.token || ''} /></label>
-              <label>Notion database ID <input name="databaseId" defaultValue={settings.notion?.databaseId || ''} /></label>
-              <label>Title property <input name="titleProperty" defaultValue={settings.notion?.titleProperty || 'Name'} /></label>
-              <label>Topic property <input name="topicProperty" defaultValue={settings.notion?.topicProperty || 'Topic'} /></label>
-              <label>Topic filters <input name="topics" placeholder="System Design,JavaScript" defaultValue={Array.isArray(settings.notion?.topics) ? settings.notion.topics.join(',') : ''} /></label>
-              <label>AI provider
-                <select name="provider" defaultValue={settings.ai?.provider || 'offline'}>
-                  <option value="offline">Offline deterministic</option>
-                  <option value="openai-compatible">OpenAI-compatible</option>
-                </select>
-              </label>
-              <label>AI API key <input name="apiKey" type="password" defaultValue={settings.ai?.apiKey || ''} /></label>
-              <label>AI base URL <input name="baseUrl" placeholder="https://api.openai.com/v1" defaultValue={settings.ai?.baseUrl || ''} /></label>
-              <label>AI model <input name="model" placeholder="gpt-4.1-mini" defaultValue={settings.ai?.model || ''} /></label>
-              <button type="submit">Save Settings</button>
-            </form>
-          </section>
-        )}
+        {view === 'history' && <HistoryView reviews={reviews} />}
+        {view === 'settings' && <SettingsView settings={settings} onSave={handleSaveSettings} />}
       </section>
     </main>
   );

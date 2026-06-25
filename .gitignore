@@ -2,4 +2,5 @@ data/
 .env
 node_modules/
 opencode.json
+opencode.jsonc
 .next/

@@ -7,6 +7,7 @@
     "dev": "bun --bun next dev",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
+    "lint": "bun --bun next lint",
     "test": "bun test"
   },
   "dependencies": {
@@ -18,6 +19,8 @@
     "@types/node": "20.12.12",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
+    "eslint": "8.56.0",
+    "eslint-config-next": "14.2.3",
     "typescript": "5.4.5"
   }
 }
