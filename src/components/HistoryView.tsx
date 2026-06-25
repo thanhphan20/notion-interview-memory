@@ -1,6 +1,7 @@
 'use client';
 
 import Card from './ui/Card';
+import HistorySummary from './HistorySummary';
 
 interface Review {
   id: number;
@@ -23,6 +24,9 @@ export default function HistoryView({ reviews }: HistoryViewProps) {
           <p className="muted">Recent answers, ratings, and feedback.</p>
         </div>
       </div>
+
+      <HistorySummary reviews={reviews} />
+
       <div className="stack">
         {reviews.length > 0 ? (
           reviews.map((review) => (

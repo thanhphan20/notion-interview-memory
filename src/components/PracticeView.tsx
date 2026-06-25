@@ -2,12 +2,23 @@
 
 import Button from './ui/Button';
 import Tag from './ui/Tag';
+import MultipleChoiceView from './MultipleChoiceView';
+import { IconCritique, IconEye, IconMC } from './ui/Icons';
 
 interface Card {
   id: number;
   question: string;
   expectedAnswer: string;
   rubric: string[];
+  tags: string[];
+}
+
+interface MCQ {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
   tags: string[];
 }
 
@@ -26,6 +37,13 @@ interface PracticeViewProps {
   aiCritique: Critique | null;
   onCritique: () => void;
   onReview: (rating: string) => void;
+  practiceMode: 'open' | 'mcq';
+  onPracticeModeChange: (mode: 'open' | 'mcq') => void;
+  mcq: MCQ | null;
+  mcqSelectedOption: number | null;
+  onMcqSelectOption: (idx: number) => void;
+  onMcqNext: () => void;
+  mcqsRemaining: number;
 }
 
 export default function PracticeView({
@@ -37,6 +55,13 @@ export default function PracticeView({
   aiCritique,
   onCritique,
   onReview,
+  practiceMode,
+  onPracticeModeChange,
+  mcq,
+  mcqSelectedOption,
+  onMcqSelectOption,
+  onMcqNext,
+  mcqsRemaining,
 }: PracticeViewProps) {
   return (
     <section className="view view-enter">
@@ -46,72 +71,100 @@ export default function PracticeView({
           <p className="muted">Answer due cards aloud or in writing, then self-grade.</p>
         </div>
       </div>
-      <article className="work-surface">
-        {activeCard ? (
-          <>
-            <h3 className="question">{activeCard.question}</h3>
-            <div className="tags">
-              {activeCard.tags.map((tag: string) => (
-                <Tag key={tag} label={tag} />
-              ))}
-            </div>
-            <div className="answer-panel">
-              <textarea
-                placeholder="Answer as if an interviewer asked you this question."
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-              />
-              <div className="actions">
-                <Button variant="secondary" onClick={onCritique}>AI Critique</Button>
-                <Button variant="secondary" onClick={() => setShowAnswerKey(true)}>Show Answer</Button>
+
+      <div className="practice-tabs">
+        <button
+          className={`practice-tab ${practiceMode === 'open' ? 'active' : ''}`}
+          onClick={() => onPracticeModeChange('open')}
+        >
+          <IconCritique />
+          Open Recall
+        </button>
+        <button
+          className={`practice-tab ${practiceMode === 'mcq' ? 'active' : ''}`}
+          onClick={() => onPracticeModeChange('mcq')}
+        >
+          <IconMC />
+          Multiple Choice
+        </button>
+      </div>
+
+      {practiceMode === 'mcq' ? (
+        <MultipleChoiceView
+          mcq={mcq}
+          selectedOption={mcqSelectedOption}
+          onSelectOption={onMcqSelectOption}
+          onNext={onMcqNext}
+          mcqsRemaining={mcqsRemaining}
+        />
+      ) : (
+        <article className="work-surface">
+          {activeCard ? (
+            <>
+              <h3 className="question">{activeCard.question}</h3>
+              <div className="tags">
+                {activeCard.tags.map((tag: string) => (
+                  <Tag key={tag} label={tag} />
+                ))}
               </div>
-
-              {showAnswerKey && (
-                <div className="answer-key">
-                  <div>
-                    <h3>Expected Answer</h3>
-                    <p>{activeCard.expectedAnswer}</p>
-                  </div>
-                  <div>
-                    <h3>Rubric</h3>
-                    <ul className="rubric">
-                      {activeCard.rubric.map((point: string, idx: number) => (
-                        <li key={idx}>{point}</li>
-                      ))}
-                    </ul>
-                  </div>
+              <div className="answer-panel">
+                <textarea
+                  placeholder="Answer as if an interviewer asked you this question."
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                />
+                <div className="actions">
+                  <Button variant="secondary" onClick={onCritique}><IconCritique /> AI Critique</Button>
+                  <Button variant="secondary" onClick={() => setShowAnswerKey(true)}><IconEye /> Show Answer</Button>
                 </div>
-              )}
 
-              {aiCritique && (
-                <div className="feedback">
-                  <h3>AI Critique</h3>
-                  <p>{aiCritique.summary}</p>
-                  <p className="muted">Suggested rating: {aiCritique.suggestedRating}</p>
-                  {aiCritique.missingKeyPoints.length > 0 && (
-                    <ul className="rubric">
-                      {aiCritique.missingKeyPoints.map((point: string, idx: number) => (
-                        <li key={idx}>{point}</li>
-                      ))}
-                    </ul>
-                  )}
+                {showAnswerKey && (
+                  <div className="answer-key">
+                    <div>
+                      <h3>Expected Answer</h3>
+                      <p>{activeCard.expectedAnswer}</p>
+                    </div>
+                    <div>
+                      <h3>Rubric</h3>
+                      <ul className="rubric">
+                        {activeCard.rubric.map((point: string, idx: number) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {aiCritique && (
+                  <div className="feedback">
+                    <h3>AI Critique</h3>
+                    <p>{aiCritique.summary}</p>
+                    <p className="muted">Suggested rating: {aiCritique.suggestedRating}</p>
+                    {aiCritique.missingKeyPoints.length > 0 && (
+                      <ul className="rubric">
+                        {aiCritique.missingKeyPoints.map((point: string, idx: number) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                <div className="actions" style={{ marginTop: '1.5rem' }}>
+                  <Button variant="danger" onClick={() => onReview('again')}>Again</Button>
+                  <Button variant="secondary" onClick={() => onReview('hard')}>Hard</Button>
+                  <Button onClick={() => onReview('good')}>Good</Button>
+                  <Button onClick={() => onReview('easy')}>Easy</Button>
                 </div>
-              )}
-
-              <div className="actions" style={{ marginTop: '1.5rem' }}>
-                <Button variant="danger" onClick={() => onReview('again')}>Again</Button>
-                <Button variant="secondary" onClick={() => onReview('hard')}>Hard</Button>
-                <Button onClick={() => onReview('good')}>Good</Button>
-                <Button onClick={() => onReview('easy')}>Easy</Button>
               </div>
+            </>
+          ) : (
+            <div className="empty-state">
+              <p>No cards are due. Approve drafts or come back when scheduled cards are ready.</p>
             </div>
-          </>
-        ) : (
-          <div className="empty-state">
-            <p>No cards are due. Approve drafts or come back when scheduled cards are ready.</p>
-          </div>
-        )}
-      </article>
+          )}
+        </article>
+      )}
     </section>
   );
 }

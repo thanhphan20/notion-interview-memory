@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAppDatabase } from '@/lib/database';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const db = createAppDatabase();
   try {
     const body = await request.json();
-    const cardId = Number(params.id);
+    const cardId = Number(id);
     const review = db.recordReview({
       cardId,
       userAnswer: body.answer || '',

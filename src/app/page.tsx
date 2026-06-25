@@ -16,6 +16,7 @@ import {
   mockNotes,
   mockDrafts,
   mockReviews,
+  mockMCQs,
   mockSettings,
 } from '@/lib/mock-data';
 
@@ -35,10 +36,15 @@ export default function SPA() {
   const [userAnswer, setUserAnswer] = useState('');
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [aiCritique, setAiCritique] = useState<any>(null);
+  const [practiceMode, setPracticeMode] = useState<'open' | 'mcq'>('open');
+  const mcqCards: any[] = USE_MOCK ? mockMCQs : [];
+  const [activeMCQIndex, setActiveMCQIndex] = useState(0);
+  const [mcqSelectedOption, setMcqSelectedOption] = useState<number | null>(null);
 
   useEffect(() => {
     loadSettings();
     loadState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const triggerStatus = (msg: string, isErr = false) => {
@@ -251,11 +257,30 @@ export default function SPA() {
     }
   }
 
+  function handleMcqSelectOption(idx: number) {
+    setMcqSelectedOption(idx);
+  }
+
+  function handleMcqNext() {
+    if (mcqCards.length === 0) return;
+    if (activeMCQIndex < mcqCards.length - 1) {
+      setActiveMCQIndex(activeMCQIndex + 1);
+      setMcqSelectedOption(null);
+    } else {
+      setActiveMCQIndex(0);
+      setMcqSelectedOption(null);
+      triggerStatus('Completed all MCQ questions.');
+    }
+  }
+
+  const activeMCQ = mcqCards.length > 0 ? mcqCards[activeMCQIndex] : null;
+
   return (
     <main className="shell">
       <Sidebar view={view} onViewChange={setView} />
       <section className="content">
         <TopBar stats={stats} onRefresh={loadState} />
+        <div className="main-panel">
         {status && <Toast message={status.message} isError={status.isError} />}
         {view === 'practice' && (
           <PracticeView
@@ -267,6 +292,13 @@ export default function SPA() {
             aiCritique={aiCritique}
             onCritique={handleRequestCritique}
             onReview={handleSubmitReview}
+            practiceMode={practiceMode}
+            onPracticeModeChange={setPracticeMode}
+            mcq={activeMCQ}
+            mcqSelectedOption={mcqSelectedOption}
+            onMcqSelectOption={handleMcqSelectOption}
+            onMcqNext={handleMcqNext}
+            mcqsRemaining={mcqCards.length - activeMCQIndex - 1}
           />
         )}
         {view === 'drafts' && (
@@ -285,6 +317,7 @@ export default function SPA() {
         )}
         {view === 'history' && <HistoryView reviews={reviews} />}
         {view === 'settings' && <SettingsView settings={settings} onSave={handleSaveSettings} />}
+        </div>
       </section>
     </main>
   );
