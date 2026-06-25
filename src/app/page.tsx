@@ -142,6 +142,18 @@ export default function SPA() {
     }
   }
 
+  async function handleGenerateAllDrafts() {
+    triggerStatus('Generating drafts from all notes...');
+    try {
+      const result = await api('/api/notes/generate-all', { method: 'POST', body: {} });
+      triggerStatus(`Generated ${result.drafts.length} drafts.`);
+      await loadState();
+      setView('drafts');
+    } catch (err: any) {
+      triggerStatus(err.message, true);
+    }
+  }
+
   async function handleGenerateDrafts(noteId: number) {
     if (USE_MOCK) {
       triggerStatus('Generated 2 drafts from note.');
@@ -312,6 +324,7 @@ export default function SPA() {
           <NotesView
             notes={notes}
             onGenerate={handleGenerateDrafts}
+            onGenerateAll={handleGenerateAllDrafts}
             onSync={handleSyncNotion}
           />
         )}

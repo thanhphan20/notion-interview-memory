@@ -15,10 +15,11 @@ interface Note {
 interface NotesViewProps {
   notes: Note[];
   onGenerate: (id: number) => void;
+  onGenerateAll: () => void;
   onSync: () => void;
 }
 
-export default function NotesView({ notes, onGenerate, onSync }: NotesViewProps) {
+export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: NotesViewProps) {
   return (
     <section className="view view-enter">
       <div className="section-heading">
@@ -26,9 +27,10 @@ export default function NotesView({ notes, onGenerate, onSync }: NotesViewProps)
           <h2>Notion Notes</h2>
           <p className="muted">Sync selected topics, then generate interview questions.</p>
         </div>
-        <Button variant="secondary" onClick={onSync}>
-          Sync Notion
-        </Button>
+        <div className="actions" style={{ gap: '0.5rem' }}>
+          <Button onClick={onGenerateAll}>Generate from All</Button>
+          <Button variant="secondary" onClick={onSync}>Sync Notion</Button>
+        </div>
       </div>
       <div className="stack">
         {notes.length > 0 ? (

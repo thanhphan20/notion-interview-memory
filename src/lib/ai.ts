@@ -108,10 +108,16 @@ export function parseMCQs(raw: string | any): MCQ[] {
   return mcqs.map((mcq: any) => {
     const options = Array.isArray(mcq.options) ? mcq.options.map(String) : [];
     if (options.length < 2) throw new Error('Each MCQ must have at least 2 options.');
+    const correctIndex = Number(mcq.correctIndex);
+    if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= options.length) {
+      throw new Error('MCQ correctIndex must be a valid index within the options array.');
+    }
+    const question = String(mcq.question || '').trim();
+    if (!question) throw new Error('Each MCQ must have a non-empty question.');
     return {
-      question: String(mcq.question || '').trim(),
+      question,
       options,
-      correctIndex: Number(mcq.correctIndex),
+      correctIndex,
       explanation: String(mcq.explanation || '').trim(),
       tags: normalizeStringList(mcq.tags),
     };

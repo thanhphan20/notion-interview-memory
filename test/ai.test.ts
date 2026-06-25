@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { createAiProvider, parseCardDrafts, parseAnswerCritique, type NoteInput } from '../src/lib/ai';
+import { createAiProvider, parseCardDrafts, parseAnswerCritique, parseMCQs, type NoteInput } from '../src/lib/ai';
 
 test('parseCardDrafts accepts strict JSON card arrays and normalizes tags', () => {
   const raw = JSON.stringify({
@@ -58,7 +58,6 @@ test('createAiProvider supports deterministic offline mode', async () => {
 });
 
 test('generateMCQs from offline provider returns a deterministic MCQ', async () => {
-  const { createAiProvider } = await import('../src/lib/ai');
   const provider = createAiProvider({ provider: 'offline' });
   const note: NoteInput = {
     title: 'B+Tree Indexing',
@@ -77,8 +76,23 @@ test('generateMCQs from offline provider returns a deterministic MCQ', async () 
   expect(mcqs[0].tags).toEqual(['Databases']);
 });
 
+test('parseMCQs validates correctIndex bounds and rejects invalid index', () => {
+  expect(() => parseMCQs(JSON.stringify({
+    mcqs: [{ question: 'Q?', options: ['A', 'B', 'C', 'D'], correctIndex: 99, explanation: 'X', tags: [] }],
+  }))).toThrow(/correctIndex/);
+
+  expect(() => parseMCQs(JSON.stringify({
+    mcqs: [{ question: 'Q?', options: ['A', 'B', 'C', 'D'], correctIndex: -1, explanation: 'X', tags: [] }],
+  }))).toThrow(/correctIndex/);
+});
+
+test('parseMCQs rejects empty question', () => {
+  expect(() => parseMCQs(JSON.stringify({
+    mcqs: [{ question: '', options: ['A', 'B', 'C', 'D'], correctIndex: 0, explanation: 'X', tags: [] }],
+  }))).toThrow(/non-empty question/);
+});
+
 test('generateMCQs from offline provider handles empty content gracefully', async () => {
-  const { createAiProvider } = await import('../src/lib/ai');
   const provider = createAiProvider({ provider: 'offline' });
   const mcqs = await provider.generateMCQs({ title: 'Empty', content: '' });
   expect(mcqs).toHaveLength(1);

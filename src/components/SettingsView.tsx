@@ -24,6 +24,18 @@ interface SettingsViewProps {
 }
 
 export default function SettingsView({ settings, onSave }: SettingsViewProps) {
+  const providerRef = (el: HTMLSelectElement | null) => {
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (el.value === 'groq') {
+        const baseUrlInput = el.form?.querySelector('[name="baseUrl"]') as HTMLInputElement;
+        const modelInput = el.form?.querySelector('[name="model"]') as HTMLInputElement;
+        if (baseUrlInput && !baseUrlInput.value) baseUrlInput.value = 'https://api.groq.com/openai/v1';
+        if (modelInput && !modelInput.value) modelInput.value = 'llama-3.3-70b-versatile';
+      }
+    });
+  };
+
   return (
     <section className="view view-enter">
       <div className="section-heading">
@@ -59,8 +71,9 @@ export default function SettingsView({ settings, onSave }: SettingsViewProps) {
         </label>
         <label>
           AI provider
-          <select name="provider" defaultValue={settings.ai?.provider || 'offline'}>
+          <select name="provider" ref={providerRef} defaultValue={settings.ai?.provider === 'groq' ? 'groq' : settings.ai?.provider || 'offline'}>
             <option value="offline">Offline deterministic</option>
+            <option value="groq">Groq (free)</option>
             <option value="openai-compatible">OpenAI-compatible</option>
           </select>
         </label>

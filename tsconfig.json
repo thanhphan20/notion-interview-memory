@@ -6,7 +6,9 @@
       "esnext"
     ],
     "allowJs": true,
-    "types": ["bun-types"],
+    "types": [
+      "bun-types"
+    ],
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
