@@ -1,3 +1,11 @@
+export interface MCQ {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  tags: string[];
+}
+
 export interface CardDraft {
   question: string;
   expectedAnswer: string;
@@ -24,6 +32,7 @@ export interface CritiqueInput {
 
 export interface AiProvider {
   generateCards(note: NoteInput): Promise<CardDraft[]>;
+  generateMCQs(note: NoteInput): Promise<MCQ[]>;
   critiqueAnswer(input: CritiqueInput): Promise<AnswerCritique>;
 }
 
@@ -90,10 +99,36 @@ export function parseAnswerCritique(raw: string | any): AnswerCritique {
   };
 }
 
+export function parseMCQs(raw: string | any): MCQ[] {
+  const parsed = typeof raw === 'string' ? parseJsonObject(raw) : raw;
+  const mcqs = Array.isArray(parsed) ? parsed : parsed.mcqs;
+  if (!Array.isArray(mcqs)) {
+    throw new Error('AI provider output must include a mcqs array.');
+  }
+  return mcqs.map((mcq: any) => {
+    const options = Array.isArray(mcq.options) ? mcq.options.map(String) : [];
+    if (options.length < 2) throw new Error('Each MCQ must have at least 2 options.');
+    return {
+      question: String(mcq.question || '').trim(),
+      options,
+      correctIndex: Number(mcq.correctIndex),
+      explanation: String(mcq.explanation || '').trim(),
+      tags: normalizeStringList(mcq.tags),
+    };
+  });
+}
+
 export function createAiProvider(config: AiConfig = {}): AiProvider {
   const provider = config.provider || process.env.AI_PROVIDER || 'offline';
   if (provider === 'offline') {
     return createOfflineProvider();
+  }
+  if (provider === 'groq') {
+    return createOpenAiCompatibleProvider({
+      ...config,
+      baseUrl: config.baseUrl || 'https://api.groq.com/openai/v1',
+      model: config.model || 'llama-3.3-70b-versatile',
+    });
   }
   if (provider === 'openai-compatible') {
     return createOpenAiCompatibleProvider(config);
@@ -128,6 +163,25 @@ function createOfflineProvider(): AiProvider {
         missingKeyPoints,
         suggestedRating: missingKeyPoints.length > 1 ? 'hard' : 'good',
       };
+    },
+    async generateMCQs(note: NoteInput): Promise<MCQ[]> {
+      const tags = Array.isArray(note.tags) ? note.tags : [];
+      const sentence = firstUsefulSentence(note.content) || note.title;
+      const words = sentence.split(/\s+/).filter(w => w.length > 3);
+      const correctWord = words.length > 0 ? words[Math.floor(words.length / 2)] : note.title;
+      const options = [
+        `The key concept described is ${correctWord}.`,
+        `The key concept described is the opposite of ${correctWord}.`,
+        correctWord.length > 0 ? `${correctWord} is unrelated to this topic.` : 'None of the above.',
+        correctWord.length > 0 ? `${correctWord} only applies to NoSQL databases.` : 'All of the above.',
+      ];
+      return [{
+        question: `Which statement best describes ${note.title}?`,
+        options,
+        correctIndex: 0,
+        explanation: sentence,
+        tags,
+      }];
     },
   };
 }
@@ -184,6 +238,13 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
         { role: 'user', content: JSON.stringify(input) },
       ]);
       return parseAnswerCritique(content);
+    },
+    async generateMCQs(note: NoteInput): Promise<MCQ[]> {
+      const content = await completeJson([
+        { role: 'system', content: 'Generate 2-3 multiple-choice questions from the note for interview practice. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
+        { role: 'user', content: JSON.stringify(note) },
+      ]);
+      return parseMCQs(content);
     },
   };
 }
