@@ -16,7 +16,6 @@ import {
   mockNotes,
   mockDrafts,
   mockReviews,
-  mockMCQs,
   mockSettings,
 } from '@/lib/mock-data';
 
@@ -30,6 +29,7 @@ export default function SPA() {
   const [dueCards, setDueCards] = useState<any[]>(USE_MOCK ? mockCards : []);
   const [reviews, setReviews] = useState<any[]>(USE_MOCK ? mockReviews : []);
   const [settings, setSettings] = useState<any>(USE_MOCK ? mockSettings : { notion: {}, ai: { provider: 'offline' } });
+  const [mcqCards, setMcqCards] = useState<any[]>([]);
   const [status, setStatus] = useState<{ message: string; isError?: boolean } | null>(null);
   const [activeCard, setActiveCard] = useState<any>(USE_MOCK ? mockCards[0] : null);
   const [activeStartedAt, setActiveStartedAt] = useState<number | null>(USE_MOCK ? Date.now() : null);
@@ -37,7 +37,6 @@ export default function SPA() {
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [aiCritique, setAiCritique] = useState<any>(null);
   const [practiceMode, setPracticeMode] = useState<'open' | 'mcq'>('open');
-  const mcqCards: any[] = USE_MOCK ? mockMCQs : [];
   const [activeMCQIndex, setActiveMCQIndex] = useState(0);
   const [mcqSelectedOption, setMcqSelectedOption] = useState<number | null>(null);
 
@@ -82,6 +81,7 @@ export default function SPA() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
+      if (data.mcqs) setMcqCards(data.mcqs);
       if (data.dueCards.length > 0) {
         if (forceAdvance || !activeCard) {
           setActiveCard(data.dueCards[0]);

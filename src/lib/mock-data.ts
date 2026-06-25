@@ -233,50 +233,6 @@ export const mockReviews = [
   },
 ];
 
-export const mockMCQs = [
-  {
-    id: 1,
-    question: 'Which of the following best describes the time complexity of a B+Tree search?',
-    options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
-    correctIndex: 1,
-    explanation:
-      'B+Tree search has O(log n) complexity due to its balanced tree structure. Each level reduces the search space by the branching factor, making it efficient for large datasets.',
-    tags: ['Databases', 'Fundamentals'],
-  },
-  {
-    id: 2,
-    question: 'In the CAP theorem, which property is considered non-negotiable in distributed systems?',
-    options: ['Consistency', 'Availability', 'Partition Tolerance', 'Durability'],
-    correctIndex: 2,
-    explanation:
-      'Partition Tolerance is non-negotiable because network failures (partitions) are inevitable in distributed systems. The real choice is between CP (sacrifice Availability) and AP (sacrifice Consistency).',
-    tags: ['Distributed Systems', 'System Design'],
-  },
-  {
-    id: 3,
-    question: 'What happens when a thread in a multi-threaded process crashes due to a segmentation fault?',
-    options: [
-      'Only the crashed thread terminates',
-      'The entire process terminates',
-      'The operating system restarts the thread',
-      'Other threads continue unaffected',
-    ],
-    correctIndex: 1,
-    explanation:
-      'Threads share the same address space within a process. A segmentation fault corrupts the shared memory, so the entire process terminates, taking all threads with it.',
-    tags: ['Operating Systems', 'Fundamentals'],
-  },
-  {
-    id: 4,
-    question: 'Which HTTP Cache-Control directive forces a client to revalidate with the origin server before using a cached response?',
-    options: ['max-age=0', 'no-cache', 'no-store', 'must-revalidate'],
-    correctIndex: 1,
-    explanation:
-      'no-cache tells the client to revalidate with the origin server before each use. Despite its name, it does allow caching — just not without checking freshness first.',
-    tags: ['Backend', 'Networking'],
-  },
-];
-
 export const mockSettings = {
   notion: {
     token: 'secret_xxxxxxxxxxxx',
