@@ -14,22 +14,30 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 - Read [README.md](./README.md) before changing setup, configuration, or user-facing instructions.
 - Keep changes scoped to this app unless the user explicitly asks otherwise.
 - Use test-driven development for behavior changes.
-- Run `npm test` before claiming work is complete.
-- If a dev server is needed, use `npm start` and verify `http://localhost:4173`.
+- Run `bun test` and `bun run lint` before claiming work is complete.
+- If a dev server is needed, use `bun run dev` and verify `http://localhost:3000`.
 - Do not commit secrets, real tokens, or `data/app.sqlite`.
 
 ## Project Structure
 
 | Path | Responsibility |
 | --- | --- |
-| `src/server.js` | Process entry point and runtime composition. |
-| `src/http.js` | HTTP request handling and static file serving. |
-| `src/api.js` | JSON API route dispatch and workflow orchestration. |
-| `src/database.js` | SQLite schema, migrations, persistence methods, and mapping. |
-| `src/notion.js` | Notion API sync, database filters, and Notion block mapping. |
-| `src/ai.js` | AI provider interface, output parsing, offline provider, and OpenAI-compatible provider. |
-| `src/scheduler.js` | Spaced review scheduling behavior. |
-| `src/static/` | Browser UI assets. |
+| `src/app/page.tsx` | SPA container — state, API calls, view routing. |
+| `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards). |
+| `src/app/globals.css` | Design tokens, typography, layout, component styles. |
+| `src/components/ui/` | Reusable primitives: Button, Card, Tag, Toast, MetricCard. |
+| `src/components/Sidebar.tsx` | Navigation sidebar with 5 view buttons. |
+| `src/components/TopBar.tsx` | Stats bar (Due, Drafts, Reviews) + Refresh. |
+| `src/components/PracticeView.tsx` | Practice workflow — question, answer, critique, self-grade. |
+| `src/components/DraftsView.tsx` | Draft approval queue with Approve/Reject. |
+| `src/components/NotesView.tsx` | Synced notes with Generate Drafts / Open Notion. |
+| `src/components/HistoryView.tsx` | Past reviews with rating badges and AI feedback. |
+| `src/components/SettingsView.tsx` | Settings form for Notion and AI configuration. |
+| `src/lib/database.ts` | SQLite schema, migrations, persistence methods, and mapping. |
+| `src/lib/notion.ts` | Notion API sync, database filters, and block mapping. |
+| `src/lib/ai.ts` | AI provider interface, output parsing, offline provider, and OpenAI-compatible provider. |
+| `src/lib/scheduler.ts` | Spaced review scheduling behavior. |
+| `src/lib/mock-data.ts` | Mock data for offline UI preview (`USE_MOCK` flag). |
 | `test/` | Automated tests. |
 | `data/` | Ignored local SQLite runtime data. |
 
@@ -46,7 +54,7 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 
 ## Coding Rules
 
-- Use CommonJS modules.
+- Use TypeScript ESM modules.
 - Avoid adding mandatory external npm dependencies unless the user approves the tradeoff.
 - Keep modules small and testable.
 - Keep business logic outside the browser UI where practical.
@@ -54,15 +62,16 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 - Validate AI provider output before saving it.
 - Preserve existing API response shapes unless updating tests and documentation in the same change.
 - Use explicit error messages for user-actionable failures.
+- When making UI changes, check `src/components/` for existing patterns before writing new code.
+- Component props should use explicit TypeScript interfaces, not `any`.
 
 ## Testing Rules
 
-- Use `npm test` as the primary verification command.
+- Use `bun test` as the primary verification command.
 - Add or update tests for every behavior change.
 - Use SQLite `:memory:` for database tests.
 - Use fake AI and Notion integrations in tests.
-- Do not rely on worker-based test execution; the current runner is `node --no-warnings test/run.js`.
-- Treat a passing HTTP status check as useful smoke coverage, not a replacement for automated tests.
+- Do not rely on worker-based test execution; use Bun's native test runner.
 
 ## Security And Privacy Rules
 
@@ -85,8 +94,9 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 
 Before reporting completion:
 
-- `npm test` has passed in the current working tree.
+- `bun test` has passed in the current working tree.
+- `bun run lint` has passed with no new warnings.
 - Any changed API behavior is reflected in [spec.md](./spec.md).
 - Any changed setup or usage behavior is reflected in [README.md](./README.md).
 - Secrets and local data are not included in file changes.
-- The app still starts with `npm start` if runtime behavior changed.
+- The app still starts with `bun run dev` if runtime behavior changed.

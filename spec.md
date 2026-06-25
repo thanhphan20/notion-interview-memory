@@ -1,8 +1,8 @@
 ---
 title: Notion Interview Memory Application Specification
-version: 1.0
+version: 1.1
 date_created: 2026-06-24
-last_updated: 2026-06-24
+last_updated: 2026-06-25
 owner: Local project owner
 tags: [architecture, design, app, notion, spaced-repetition, interview-practice]
 ---
@@ -24,7 +24,7 @@ The scope includes:
 - Draft approval workflow.
 - SQLite persistence.
 - Interview practice and review scheduling.
-- API contracts used by the static browser UI.
+- API contracts used by the browser UI.
 - Testing and validation expectations.
 
 The scope excludes:
@@ -59,6 +59,7 @@ Assumptions:
 | Card | An approved open-recall study item used in interview practice. |
 | Draft | An AI-generated candidate card that has not yet been approved or rejected. |
 | FSRS | Free Spaced Repetition Scheduler. In this app, the scheduling behavior is FSRS-style and tracks stability, difficulty, reps, lapses, due date, and rating history. |
+| Mock Data | Predefined realistic data in `src/lib/mock-data.ts` used to preview the UI without a backend. |
 | Notion Database | The user's source database containing interview, system design, programming, language, and design pattern notes. |
 | Note | A local SQLite record synced from one Notion page. |
 | Open Recall | A review format where the user answers in their own words before seeing the expected answer. |
@@ -94,9 +95,9 @@ Assumptions:
 - **SEC-003**: The app shall not expose network listeners other than the local HTTP server.
 - **SEC-004**: The app shall not send note content to an AI provider unless the user selects or configures an AI provider that performs network requests.
 
-- **CON-001**: The app shall use TypeScript and ESM/TS module system supported by Bun and Next.js.
+- **CON-001**: The app shall use TypeScript and ESM module system supported by Bun and Next.js.
 - **CON-002**: The app shall run on Bun `>=1.1.0`.
-- **CON-003**: The app shall avoid mandatory external npm dependencies for v1.
+- **CON-003**: The app shall minimize mandatory external npm dependencies for v1. ESLint and config packages are excluded from this constraint.
 - **CON-004**: The app shall use `bun:sqlite` for local persistence.
 - **CON-005**: The browser UI shall be implemented as a Next.js frontend running on the Bun runtime.
 - **CON-006**: Tests shall run through `bun test`.
@@ -115,6 +116,9 @@ Assumptions:
 - **PAT-005**: Put Next.js API route handlers in `src/app/api/`.
 - **PAT-006**: Put Next.js pages and page-level React components in `src/app/`.
 - **PAT-007**: Keep application entry and runtime setup controlled by Next.js configuration.
+- **PAT-008**: Put reusable UI components in `src/components/ui/`.
+- **PAT-009**: Put view-level components in `src/components/` (PracticeView, DraftsView, etc.).
+- **PAT-010**: Put mock data for offline UI preview in `src/lib/mock-data.ts`.
 
 ## 4. Interfaces & Data Contracts
 
@@ -123,13 +127,16 @@ Assumptions:
 | Command | Purpose |
 | --- | --- |
 | `bun run dev` | Start Next.js local development server at `http://localhost:3000` or configured `PORT`. |
+| `bun run build` | Create production build. |
+| `bun run start` | Start production server. |
+| `bun run lint` | Run ESLint with `next/core-web-vitals` rules. |
 | `bun test` | Run all automated tests using Bun's native test runner. |
 
 ### 4.2 Environment Variables
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `PORT` | No | Local HTTP port. Default: `4173`. |
+| `PORT` | No | Local HTTP port. Default: `3000`. |
 | `DATA_DIR` | No | Directory for SQLite data. Default: `./data`. |
 | `NOTION_TOKEN` | For Notion sync if not configured in UI | Notion integration token. |
 | `NOTION_DATABASE_ID` | For Notion sync if not configured in UI | Source database ID. |
@@ -259,6 +266,7 @@ Assumptions:
 - **AC-008**: Given AI suggests a rating, When the user selects a different self-grade, Then the user-selected grade controls scheduling.
 - **AC-009**: Given the app restarts, When state is loaded, Then notes, drafts, cards, schedules, and reviews remain available from SQLite.
 - **AC-010**: Given no AI API key is configured, When the offline provider is selected, Then the app can still generate deterministic drafts and critique answers.
+- **AC-011**: Given `USE_MOCK = true` in `src/lib/mock-data.ts`, When the app starts, Then the UI renders with realistic mock data and all interactions (answer, critique, approve, reject, review) work locally without a backend.
 
 ## 6. Test Automation Strategy
 
@@ -269,6 +277,7 @@ Assumptions:
 - **Coverage Requirements**: Each new module or behavior shall have automated tests. No numeric coverage threshold is defined for v1.
 - **Performance Testing**: No load testing is required for v1 because the app is single-user local software.
 - **Network Test Policy**: Automated tests shall not require real Notion or AI network calls. Use injected fakes for external integrations.
+- **Lint Policy**: `bun run lint` shall pass without errors before merging changes.
 
 ## 7. Rationale & Context
 
@@ -301,7 +310,8 @@ The app is local-first to keep personal knowledge private, reduce setup scope, a
 ### Technology Platform Dependencies
 
 - **PLT-001**: Bun `>=1.1.0` - Required for `bun:sqlite` and fast TypeScript execution.
-- **PLT-002**: Modern browser - Required for `fetch`, static JavaScript modules, and standard DOM APIs.
+- **PLT-002**: Modern browser - Required for `fetch`, standard DOM APIs, and CSS custom properties.
+- **PLT-003**: Geist and JetBrains Mono fonts - Loaded via Google Fonts CDN.
 
 ### Compliance Dependencies
 
@@ -352,8 +362,9 @@ If AI suggests `hard` and the user selects `good`, the schedule shall use `good`
 
 ## 10. Validation Criteria
 
-- `npm test` shall pass with all tests green.
-- The app shall start with `npm start`.
+- `bun test` shall pass with all tests green.
+- `bun run lint` shall pass with no errors.
+- The app shall start with `bun run dev`.
 - `GET /` shall return the static app shell.
 - `GET /api/state` shall return valid JSON with `stats`, `notes`, `drafts`, `cards`, `dueCards`, and `reviews`.
 - Tests shall cover scheduler behavior for new cards, `again`, and repeated successful reviews.
@@ -362,10 +373,13 @@ If AI suggests `hard` and the user selects `good`, the schedule shall use `good`
 - Tests shall cover note upsert, draft approval, schedule creation, review recording, and AI feedback persistence.
 - Tests shall cover API sync, draft generation, approval, critique, and review submission.
 - Tests shall not require real API credentials.
+- With `USE_MOCK = true`, the UI shall render all 5 views with populated data and support all interaction flows locally.
 
 ## 11. Related Specifications / Further Reading
 
 - [README.md](./README.md)
 - [agent.md](./agent.md)
+- [docs/design-guide.md](./docs/design-guide.md)
+- [docs/design-implementation-plan.md](./docs/design-implementation-plan.md)
 - [Notion API documentation](https://developers.notion.com/)
 - [Bun SQLite documentation](https://bun.sh/docs/api/sqlite)
