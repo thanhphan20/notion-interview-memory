@@ -87,8 +87,7 @@ test('recordReview stores optional AI feedback and advances schedule', () => {
 });
 
 test('createMCQs stores questions and listMCQs returns them', () => {
-  const { createAppDatabase } = require('../src/lib/database');
-  const db = createAppDatabase();
+  const db = createAppDatabase(':memory:');
   const note = db.upsertNote({
     notionPageId: 'mcq-test-1',
     title: 'MCQ Test',
@@ -114,18 +113,11 @@ test('createMCQs stores questions and listMCQs returns them', () => {
   expect(found).toBeDefined();
   expect(found!.options).toEqual(['A', 'B', 'C', 'D']);
 
-  db.db.prepare('DELETE FROM reviews').run();
-  db.db.prepare('DELETE FROM schedules').run();
-  db.db.prepare('DELETE FROM cards').run();
-  db.db.prepare('DELETE FROM card_drafts').run();
-  db.db.prepare('DELETE FROM mcq_questions').run();
-  db.db.prepare('DELETE FROM notes').run();
   db.close();
 });
 
 test('createMCQs deletes old MCQs for the same note_id', () => {
-  const { createAppDatabase } = require('../src/lib/database');
-  const db = createAppDatabase();
+  const db = createAppDatabase(':memory:');
   const note = db.upsertNote({
     notionPageId: 'mcq-test-2',
     title: 'MCQ Replace',
@@ -142,7 +134,5 @@ test('createMCQs deletes old MCQs for the same note_id', () => {
   expect(noteMcqs).toHaveLength(1);
   expect(noteMcqs[0].question).toBe('New?');
 
-  db.db.prepare('DELETE FROM mcq_questions').run();
-  db.db.prepare('DELETE FROM notes').run();
   db.close();
 });
