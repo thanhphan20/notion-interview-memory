@@ -365,6 +365,39 @@ body {
   letter-spacing: 0.05em;
 }
 
+.tag-filter {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tag-filter:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tag-filter.active {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+}
+
+.tag-filter.active svg {
+  width: 12px;
+  height: 12px;
+}
+
 .toast {
   padding: 1rem;
   background: #4a2800;

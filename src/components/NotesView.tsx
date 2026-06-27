@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import Card from './ui/Card';
 import Tag from './ui/Tag';
 import Button from './ui/Button';
+import { IconX } from './ui/Icons';
 
 interface Note {
   id: number;
@@ -20,6 +22,23 @@ interface NotesViewProps {
 }
 
 export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: NotesViewProps) {
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const note of notes) {
+      for (const tag of note.tags) {
+        set.add(tag);
+      }
+    }
+    return Array.from(set).sort();
+  }, [notes]);
+
+  const filteredNotes = useMemo(() => {
+    if (!activeTag) return notes;
+    return notes.filter((note) => note.tags.includes(activeTag));
+  }, [notes, activeTag]);
+
   return (
     <section className="view view-enter">
       <div className="section-heading">
@@ -32,9 +51,24 @@ export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: 
           <Button variant="secondary" onClick={onSync}>Sync Notion</Button>
         </div>
       </div>
+      {allTags.length > 0 && (
+        <div className="tags" style={{ marginBottom: '1rem' }}>
+          {!activeTag ? (
+            allTags.map((tag) => (
+              <button key={tag} className="tag-filter" onClick={() => setActiveTag(tag)}>
+                {tag}
+              </button>
+            ))
+          ) : (
+            <button className="tag-filter active" onClick={() => setActiveTag(null)}>
+              {activeTag} <IconX />
+            </button>
+          )}
+        </div>
+      )}
       <div className="stack">
-        {notes.length > 0 ? (
-          notes.map((note) => (
+        {filteredNotes.length > 0 ? (
+          filteredNotes.map((note) => (
             <Card key={note.id}>
               <h3 className="headline-sm">{note.title}</h3>
               <p className="muted">
@@ -58,7 +92,11 @@ export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: 
           ))
         ) : (
           <div className="empty-state">
-            <p>No notes synced yet. Configure your Notion settings and sync to get started.</p>
+            {activeTag ? (
+              <p>No notes match the filter <strong>{activeTag}</strong>.</p>
+            ) : (
+              <p>No notes synced yet. Configure your Notion settings and sync to get started.</p>
+            )}
           </div>
         )}
       </div>
