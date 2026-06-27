@@ -1,14 +1,18 @@
-import { test, expect, mock } from 'bun:test';
+import { test, expect, mock, beforeAll } from 'bun:test';
 import { NextRequest } from 'next/server';
+import { mkdtempSync } from 'node:fs';
 
-// Mock global.fetch so route handlers don't make real network calls
+let origDataDir: string | undefined;
+
+beforeAll(() => {
+  const tmpDir = mkdtempSync('opencode-test-');
+  origDataDir = process.env.DATA_DIR;
+  process.env.DATA_DIR = tmpDir;
+});
+
 const originalFetch = global.fetch;
-let db: any;
 
 test('state route returns valid JSON', async () => {
-  // Redirect data to :memory: so tests don't touch real DB
-  const origCwd = process.cwd;
-  // import state route lazily to pick up possible env changes
   const mod = await import('../src/app/api/state/route');
   const res = await mod.GET(new NextRequest('http://localhost/api/state'));
   expect(res.status).toBe(200);
@@ -52,7 +56,6 @@ test('sync route handles valid request', async () => {
 test('generate-all route creates drafts from all notes', async () => {
   const { createAppDatabase } = await import('../src/lib/database');
   const testDb = createAppDatabase();
-  // Ensure AI provider is offline (user may have saved Groq settings in DB)
   testDb.setSetting('ai', { provider: 'offline' });
   testDb.upsertNote({
     notionPageId: 'gen-test-page-1',
@@ -77,10 +80,6 @@ test('generate-all route creates drafts from all notes', async () => {
   expect(body.drafts.length).toBeGreaterThanOrEqual(1);
   expect(body.drafts[0]).toHaveProperty('question');
   expect(body.drafts[0]).toHaveProperty('expectedAnswer');
-
-  const cleanDb = createAppDatabase();
-  cleanDb.db.prepare("DELETE FROM notes WHERE notion_page_id IN ('gen-test-page-1', 'mcq-gen-page-1')").run();
-  cleanDb.close();
 });
 
 test('generate-all route creates MCQs alongside drafts', async () => {
@@ -107,8 +106,4 @@ test('generate-all route creates MCQs alongside drafts', async () => {
   expect(body.mcqs.length).toBeGreaterThanOrEqual(1);
   expect(body.mcqs[0]).toHaveProperty('question');
   expect(body.mcqs[0]).toHaveProperty('options');
-
-  const cleanDb = createAppDatabase();
-  cleanDb.db.prepare("DELETE FROM notes WHERE notion_page_id IN ('gen-test-page-1', 'mcq-gen-page-1')").run();
-  cleanDb.close();
 });
