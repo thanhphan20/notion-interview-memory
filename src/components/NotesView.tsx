@@ -51,21 +51,18 @@ export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: 
           <Button variant="secondary" onClick={onSync}>Sync Notion</Button>
         </div>
       </div>
-      {allTags.length > 0 && (
-        <div className="tags" style={{ marginBottom: '1rem' }}>
-          {!activeTag ? (
-            allTags.map((tag) => (
-              <button key={tag} className="tag-filter" onClick={() => setActiveTag(tag)}>
-                {tag}
-              </button>
-            ))
-          ) : (
-            <button className="tag-filter active" onClick={() => setActiveTag(null)}>
-              {activeTag} <IconX />
-            </button>
-          )}
-        </div>
-      )}
+      <div className="tags" style={{ marginBottom: '1rem', minHeight: '1.5rem' }}>
+        {allTags.length > 0 && !activeTag && allTags.map((tag) => (
+          <button key={tag} className="tag-filter" onClick={() => setActiveTag(tag)}>
+            {tag}
+          </button>
+        ))}
+        {activeTag && (
+          <button className="tag-filter active" onClick={() => setActiveTag(null)}>
+            {activeTag} <IconX />
+          </button>
+        )}
+      </div>
       <div className="stack">
         {filteredNotes.length > 0 ? (
           filteredNotes.map((note) => (
