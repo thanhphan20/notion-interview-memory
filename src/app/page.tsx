@@ -23,13 +23,14 @@ type ViewType = 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 export default function SPA() {
   const [view, setView] = useState<ViewType>('practice');
-  const [stats, setStats] = useState(USE_MOCK ? mockStats : { dueCount: 0, draftCount: 0, reviewCount: 0 });
+  const [stats, setStats] = useState(USE_MOCK ? mockStats : { dueCount: 0, draftCount: 0, reviewCount: 0, mcqReviewCount: 0 });
   const [notes, setNotes] = useState<any[]>(USE_MOCK ? mockNotes : []);
   const [drafts, setDrafts] = useState<any[]>(USE_MOCK ? mockDrafts : []);
   const [dueCards, setDueCards] = useState<any[]>(USE_MOCK ? mockCards : []);
   const [reviews, setReviews] = useState<any[]>(USE_MOCK ? mockReviews : []);
   const [settings, setSettings] = useState<any>(USE_MOCK ? mockSettings : { notion: {}, ai: { provider: 'offline' } });
   const [mcqCards, setMcqCards] = useState<any[]>([]);
+  const [mcqReviews, setMcqReviews] = useState<any[]>([]);
   const [status, setStatus] = useState<{ message: string; isError?: boolean } | null>(null);
   const [activeCard, setActiveCard] = useState<any>(USE_MOCK ? mockCards[0] : null);
   const [activeStartedAt, setActiveStartedAt] = useState<number | null>(USE_MOCK ? Date.now() : null);
@@ -38,13 +39,24 @@ export default function SPA() {
   const [aiCritique, setAiCritique] = useState<any>(null);
   const [practiceMode, setPracticeMode] = useState<'open' | 'mcq'>('open');
   const [activeMCQIndex, setActiveMCQIndex] = useState(0);
-  const [mcqSelectedOption, setMcqSelectedOption] = useState<number | null>(null);
+  const [mcqAnswered, setMcqAnswered] = useState<Record<number, number>>({});
+  const [mcqShuffled, setMcqShuffled] = useState<any[]>([]);
+  const [cardFilterTag, setCardFilterTag] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
     loadState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function shuffleArray<T>(arr: T[]): T[] {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
 
   const triggerStatus = (msg: string, isErr = false) => {
     setStatus({ message: msg, isError: isErr });
@@ -72,7 +84,7 @@ export default function SPA() {
     }
   }
 
-  async function loadState(forceAdvance = false) {
+  async function loadState(forceAdvance = false): Promise<any> {
     if (USE_MOCK) return;
     try {
       const data = await api('/api/state');
@@ -81,7 +93,11 @@ export default function SPA() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
-      if (data.mcqs) setMcqCards(data.mcqs);
+      if (data.mcqs) {
+        setMcqCards(data.mcqs);
+        setMcqShuffled((prev) => prev.length === 0 ? shuffleArray(data.mcqs) : prev);
+      }
+      if (data.mcqReviews) setMcqReviews(data.mcqReviews);
       if (data.dueCards.length > 0) {
         if (forceAdvance || !activeCard) {
           setActiveCard(data.dueCards[0]);
@@ -90,6 +106,7 @@ export default function SPA() {
       } else {
         setActiveCard(null);
       }
+      return data;
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
@@ -136,6 +153,17 @@ export default function SPA() {
     try {
       const result = await api('/api/notion/sync', { method: 'POST', body: {} });
       triggerStatus(`Synced ${result.imported} notes.`);
+      await loadState();
+    } catch (err: any) {
+      triggerStatus(err.message, true);
+    }
+  }
+
+  async function handleGenerateMoreMCQs() {
+    triggerStatus('Generating more multiple choice questions...');
+    try {
+      const result = await api('/api/mcqs/generate', { method: 'POST', body: {} });
+      triggerStatus(`Generated ${result.mcqs.length} new MCQs.`);
       await loadState();
     } catch (err: any) {
       triggerStatus(err.message, true);
@@ -263,29 +291,50 @@ export default function SPA() {
       setActiveCard(null);
       setActiveStartedAt(null);
       triggerStatus('Review saved.');
-      await loadState(true);
+      const newData = await loadState(true);
+      if (cardFilterTag && newData?.dueCards) {
+        const match = newData.dueCards.find((c: any) => c.tags?.includes(cardFilterTag));
+        if (match) setActiveCard(match);
+      }
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
   }
 
-  function handleMcqSelectOption(idx: number) {
-    setMcqSelectedOption(idx);
-  }
-
-  function handleMcqNext() {
-    if (mcqCards.length === 0) return;
-    if (activeMCQIndex < mcqCards.length - 1) {
-      setActiveMCQIndex(activeMCQIndex + 1);
-      setMcqSelectedOption(null);
-    } else {
-      setActiveMCQIndex(0);
-      setMcqSelectedOption(null);
-      triggerStatus('Completed all MCQ questions.');
+  async function handleMcqAnswer(mcqId: number, optionIdx: number) {
+    setMcqAnswered(prev => ({ ...prev, [mcqId]: optionIdx }));
+    if (USE_MOCK) return;
+    try {
+      await api(`/api/mcqs/${mcqId}/review`, { method: 'POST', body: { selectedIndex: optionIdx } });
+      await loadState();
+    } catch (err: any) {
+      triggerStatus(err.message, true);
     }
   }
 
-  const activeMCQ = mcqCards.length > 0 ? mcqCards[activeMCQIndex] : null;
+  function handleMcqIndexChange(idx: number) {
+    setActiveMCQIndex(idx);
+  }
+
+  function handleCardFilterChange(tag: string | null) {
+    setCardFilterTag(tag);
+    setUserAnswer('');
+    setShowAnswerKey(false);
+    setAiCritique(null);
+    if (tag) {
+      const match = dueCards.find((c: any) => c.tags?.includes(tag));
+      if (match) setActiveCard(match);
+    } else {
+      setActiveCard(dueCards[0] || null);
+    }
+    setActiveStartedAt(Date.now());
+  }
+
+  function handleShuffleMCQs() {
+    setMcqShuffled(shuffleArray(mcqShuffled.length > 0 ? mcqShuffled : mcqCards));
+    setActiveMCQIndex(0);
+    setMcqAnswered({});
+  }
 
   return (
     <main className="shell">
@@ -306,11 +355,15 @@ export default function SPA() {
             onReview={handleSubmitReview}
             practiceMode={practiceMode}
             onPracticeModeChange={setPracticeMode}
-            mcq={activeMCQ}
-            mcqSelectedOption={mcqSelectedOption}
-            onMcqSelectOption={handleMcqSelectOption}
-            onMcqNext={handleMcqNext}
-            mcqsRemaining={mcqCards.length - activeMCQIndex - 1}
+            mcqCards={mcqShuffled}
+            mcqAnswered={mcqAnswered}
+            onMcqAnswer={handleMcqAnswer}
+            activeMCQIndex={activeMCQIndex}
+            onMcqIndexChange={handleMcqIndexChange}
+            onShuffleMCQs={handleShuffleMCQs}
+            dueCards={dueCards}
+            cardFilterTag={cardFilterTag}
+            onCardFilterChange={handleCardFilterChange}
           />
         )}
         {view === 'drafts' && (
@@ -318,6 +371,7 @@ export default function SPA() {
             drafts={drafts}
             onApprove={handleApproveDraft}
             onReject={handleRejectDraft}
+            onGenerateMCQs={handleGenerateMoreMCQs}
           />
         )}
         {view === 'notes' && (
@@ -328,7 +382,7 @@ export default function SPA() {
             onSync={handleSyncNotion}
           />
         )}
-        {view === 'history' && <HistoryView reviews={reviews} />}
+        {view === 'history' && <HistoryView reviews={reviews} mcqReviews={mcqReviews} />}
         {view === 'settings' && <SettingsView settings={settings} onSave={handleSaveSettings} />}
         </div>
       </section>

@@ -48,6 +48,7 @@ export interface Review {
   rating: string;
   elapsedSeconds: number;
   reviewedAt: string;
+  tags?: string[];
 }
 
 export interface MCQQuestion {
@@ -61,11 +62,24 @@ export interface MCQQuestion {
   createdAt: string;
 }
 
+export interface MCQReview {
+  id: number;
+  mcqId: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  selectedIndex: number;
+  correct: boolean;
+  reviewedAt: string;
+  tags?: string[];
+}
+
 export interface DbStats {
   totalNotes: number;
   draftCount: number;
   cardCount: number;
   reviewCount: number;
+  mcqReviewCount: number;
   dueCount: number;
 }
 
@@ -333,7 +347,35 @@ export class AppDatabase {
   }
 
   listReviews(): Review[] {
-    return (this.db.prepare('SELECT * FROM reviews ORDER BY reviewed_at DESC, id DESC').all() as any[]).map(mapReview);
+    return (this.db.prepare(`
+      SELECT r.*, c.tags_json
+      FROM reviews r
+      LEFT JOIN cards c ON c.id = r.card_id
+      ORDER BY r.reviewed_at DESC, r.id DESC
+    `).all() as any[]).map(mapReview);
+  }
+
+  recordMCQReview(mcqId: number, selectedIndex: number): MCQReview {
+    const mcq = this.getMCQ(mcqId);
+    if (!mcq) throw new Error(`MCQ not found: ${mcqId}`);
+    const correct = selectedIndex === mcq.correctIndex ? 1 : 0;
+    const reviewedAt = new Date().toISOString();
+    const result = this.db.prepare(`
+      INSERT INTO mcq_reviews (mcq_id, selected_index, correct, reviewed_at)
+      VALUES (?, ?, ?, ?)
+    `).run(mcqId, selectedIndex, correct, reviewedAt) as { lastInsertRowid: number };
+    return mapMCQReview({ id: Number(result.lastInsertRowid), mcq_id: mcqId, selected_index: selectedIndex, correct, reviewed_at: reviewedAt }, mcq);
+  }
+
+  listMCQReviews(): MCQReview[] {
+    const rows = this.db.prepare(`
+      SELECT r.id, r.mcq_id, r.selected_index, r.correct, r.reviewed_at,
+             q.question, q.options_json, q.correct_index, q.tags_json
+      FROM mcq_reviews r
+      JOIN mcq_questions q ON q.id = r.mcq_id
+      ORDER BY r.reviewed_at DESC, r.id DESC
+    `).all() as any[];
+    return rows.map(mapMCQReviewRow);
   }
 
   createMCQs(noteId: number, mcqs: MCQ[]): MCQQuestion[] {
@@ -376,8 +418,9 @@ export class AppDatabase {
     const draftCount = (this.db.prepare("SELECT COUNT(*) AS count FROM card_drafts WHERE status = 'draft'").get() as any).count;
     const cardCount = (this.db.prepare('SELECT COUNT(*) AS count FROM cards').get() as any).count;
     const reviewCount = (this.db.prepare('SELECT COUNT(*) AS count FROM reviews').get() as any).count;
+    const mcqReviewCount = (this.db.prepare('SELECT COUNT(*) AS count FROM mcq_reviews').get() as any).count;
     const dueCount = this.listDueCards(now).length;
-    return { totalNotes, draftCount, cardCount, reviewCount, dueCount };
+    return { totalNotes, draftCount, cardCount, reviewCount, mcqReviewCount, dueCount };
   }
 
   withTransaction<T>(fn: () => T): T {
@@ -455,7 +498,35 @@ function mapReview(row: any): Review {
     aiFeedback: row.ai_feedback_json ? JSON.parse(row.ai_feedback_json) : null,
     rating: row.rating,
     elapsedSeconds: row.elapsed_seconds,
-    reviewedAt: row.reviewed_at
+    reviewedAt: row.reviewed_at,
+    tags: row.tags_json ? JSON.parse(row.tags_json) : undefined,
+  };
+}
+
+function mapMCQReview(row: any, mcq: MCQQuestion): MCQReview {
+  return {
+    id: row.id,
+    mcqId: row.mcq_id,
+    question: mcq.question,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    selectedIndex: row.selected_index,
+    correct: row.correct === 1,
+    reviewedAt: row.reviewed_at,
+  };
+}
+
+function mapMCQReviewRow(row: any): MCQReview {
+  return {
+    id: row.id,
+    mcqId: row.mcq_id,
+    question: row.question,
+    options: JSON.parse(row.options_json),
+    correctIndex: row.correct_index,
+    selectedIndex: row.selected_index,
+    correct: row.correct === 1,
+    reviewedAt: row.reviewed_at,
+    tags: row.tags_json ? JSON.parse(row.tags_json) : undefined,
   };
 }
 

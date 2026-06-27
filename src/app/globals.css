@@ -964,3 +964,84 @@ select {
 .view-enter {
   animation: slide-in 0.15s ease-out;
 }
+
+.mcq-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.mcq-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mcq-nav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.mcq-nav-btn.current {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+}
+
+.mcq-nav-btn.correct {
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.mcq-nav-btn.incorrect {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.shuffle-btn {
+  cursor: pointer;
+}
+
+.mcq-opt-history {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.125rem 0;
+}
+
+.mcq-opt-history svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.mcq-opt-history-correct {
+  color: #4caf50;
+}
+
+.mcq-opt-history-wrong {
+  color: var(--danger);
+}
+
+.mcq-letter-history {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  width: 14px;
+  text-align: center;
+}

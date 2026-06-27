@@ -4,6 +4,7 @@ export const mockStats = {
   dueCount: 5,
   draftCount: 3,
   reviewCount: 12,
+  mcqReviewCount: 0,
 };
 
 export const mockCards = [

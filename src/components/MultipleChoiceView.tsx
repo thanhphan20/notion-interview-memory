@@ -14,21 +14,21 @@ interface MCQ {
 }
 
 interface MultipleChoiceViewProps {
-  mcq: MCQ | null;
-  selectedOption: number | null;
-  onSelectOption: (idx: number) => void;
-  onNext: () => void;
-  mcqsRemaining: number;
+  mcqs: MCQ[];
+  mcqAnswered: Record<number, number>;
+  onMcqAnswer: (mcqId: number, optionIdx: number) => void;
+  activeIndex: number;
+  onIndexChange: (idx: number) => void;
 }
 
 export default function MultipleChoiceView({
-  mcq,
-  selectedOption,
-  onSelectOption,
-  onNext,
-  mcqsRemaining,
+  mcqs,
+  mcqAnswered,
+  onMcqAnswer,
+  activeIndex,
+  onIndexChange,
 }: MultipleChoiceViewProps) {
-  if (!mcq) {
+  if (mcqs.length === 0) {
     return (
       <div className="empty-state">
         <p>No multiple choice questions available. Sync notes and generate cards first.</p>
@@ -36,23 +36,41 @@ export default function MultipleChoiceView({
     );
   }
 
+  const activeMCQ = mcqs[activeIndex];
+  const selectedOption = mcqAnswered[activeMCQ.id] ?? null;
   const answered = selectedOption !== null;
-  const isCorrect = answered && selectedOption === mcq.correctIndex;
+  const isCorrect = answered && selectedOption === activeMCQ.correctIndex;
 
   return (
     <article className="work-surface">
-      <h3 className="question">{mcq.question}</h3>
+      <div className="mcq-nav">
+        {mcqs.map((q, idx) => {
+          const ans = mcqAnswered[q.id];
+          let cls = 'mcq-nav-btn';
+          if (idx === activeIndex) cls += ' current';
+          else if (ans !== undefined) {
+            cls += ans === q.correctIndex ? ' correct' : ' incorrect';
+          }
+          return (
+            <button key={q.id} className={cls} onClick={() => onIndexChange(idx)} title={q.question.slice(0, 60)}>
+              {idx + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      <h3 className="question">{activeMCQ.question}</h3>
       <div className="tags">
-        {mcq.tags.map((tag: string) => (
+        {activeMCQ.tags.map((tag: string) => (
           <Tag key={tag} label={tag} />
         ))}
       </div>
 
       <div className="mcq-options">
-        {mcq.options.map((opt, idx) => {
+        {activeMCQ.options.map((opt, idx) => {
           let cls = 'mcq-option';
           if (answered) {
-            if (idx === mcq.correctIndex) cls += ' correct';
+            if (idx === activeMCQ.correctIndex) cls += ' correct';
             else if (idx === selectedOption) cls += ' incorrect';
           } else if (idx === selectedOption) {
             cls += ' selected';
@@ -61,11 +79,11 @@ export default function MultipleChoiceView({
             <button
               key={idx}
               className={cls}
-              onClick={() => !answered && onSelectOption(idx)}
+              onClick={() => !answered && onMcqAnswer(activeMCQ.id, idx)}
               disabled={answered}
             >
               <span className="mcq-marker">
-                {answered && idx === mcq.correctIndex ? (
+                {answered && idx === activeMCQ.correctIndex ? (
                   <IconCheck className="mcq-icon-correct" />
                 ) : answered && idx === selectedOption ? (
                   <IconX className="mcq-icon-incorrect" />
@@ -82,15 +100,7 @@ export default function MultipleChoiceView({
       {answered && (
         <div className={`mcq-result ${isCorrect ? 'correct' : 'incorrect'}`}>
           <h3>{isCorrect ? 'Correct' : 'Incorrect'}</h3>
-          <p>{mcq.explanation}</p>
-        </div>
-      )}
-
-      {answered && (
-        <div className="actions" style={{ marginTop: '1rem' }}>
-          <Button onClick={onNext}>
-            {mcqsRemaining > 0 ? `Next Question (${mcqsRemaining} remaining)` : 'Done'}
-          </Button>
+          <p>{activeMCQ.explanation}</p>
         </div>
       )}
     </article>

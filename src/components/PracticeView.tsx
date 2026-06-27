@@ -1,9 +1,10 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Button from './ui/Button';
 import Tag from './ui/Tag';
 import MultipleChoiceView from './MultipleChoiceView';
-import { IconCritique, IconEye, IconMC } from './ui/Icons';
+import { IconCritique, IconEye, IconMC, IconShuffle, IconX } from './ui/Icons';
 
 interface Card {
   id: number;
@@ -39,11 +40,15 @@ interface PracticeViewProps {
   onReview: (rating: string) => void;
   practiceMode: 'open' | 'mcq';
   onPracticeModeChange: (mode: 'open' | 'mcq') => void;
-  mcq: MCQ | null;
-  mcqSelectedOption: number | null;
-  onMcqSelectOption: (idx: number) => void;
-  onMcqNext: () => void;
-  mcqsRemaining: number;
+  mcqCards: MCQ[];
+  mcqAnswered: Record<number, number>;
+  onMcqAnswer: (mcqId: number, optionIdx: number) => void;
+  activeMCQIndex: number;
+  onMcqIndexChange: (idx: number) => void;
+  onShuffleMCQs: () => void;
+  dueCards?: Card[];
+  cardFilterTag?: string | null;
+  onCardFilterChange?: (tag: string | null) => void;
 }
 
 export default function PracticeView({
@@ -57,12 +62,39 @@ export default function PracticeView({
   onReview,
   practiceMode,
   onPracticeModeChange,
-  mcq,
-  mcqSelectedOption,
-  onMcqSelectOption,
-  onMcqNext,
-  mcqsRemaining,
+  mcqCards,
+  mcqAnswered,
+  onMcqAnswer,
+  activeMCQIndex,
+  onMcqIndexChange,
+  onShuffleMCQs,
+  dueCards = [],
+  cardFilterTag,
+  onCardFilterChange,
 }: PracticeViewProps) {
+  const [mcqFilterTag, setMcqFilterTag] = useState<string | null>(null);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of mcqCards) {
+      for (const t of m.tags) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [mcqCards]);
+
+  const filteredMCQs = useMemo(() => {
+    if (!mcqFilterTag) return mcqCards;
+    return mcqCards.filter((m) => m.tags.includes(mcqFilterTag));
+  }, [mcqCards, mcqFilterTag]);
+
+  const cardTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of dueCards) {
+      for (const t of c.tags) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [dueCards]);
+
   return (
     <section className="view view-enter">
       <div className="section-heading">
@@ -90,15 +122,44 @@ export default function PracticeView({
       </div>
 
       {practiceMode === 'mcq' ? (
-        <MultipleChoiceView
-          mcq={mcq}
-          selectedOption={mcqSelectedOption}
-          onSelectOption={onMcqSelectOption}
-          onNext={onMcqNext}
-          mcqsRemaining={mcqsRemaining}
-        />
+        <>
+          <div className="tags" style={{ marginBottom: '1rem', minHeight: '1.5rem' }}>
+            <button className="tag-filter shuffle-btn" onClick={onShuffleMCQs} title="Shuffle questions">
+              <IconShuffle />
+            </button>
+            {mcqFilterTag ? (
+              <button className="tag-filter active" onClick={() => { setMcqFilterTag(null); onMcqIndexChange(0); }}>
+                {mcqFilterTag} <IconX />
+              </button>
+            ) : (
+              allTags.map((tag) => (
+                <button key={tag} className="tag-filter" onClick={() => { setMcqFilterTag(tag); onMcqIndexChange(0); }}>
+                  {tag}
+                </button>
+              ))
+            )}
+          </div>
+          <MultipleChoiceView
+            mcqs={filteredMCQs}
+            mcqAnswered={mcqAnswered}
+            onMcqAnswer={onMcqAnswer}
+            activeIndex={Math.min(activeMCQIndex, filteredMCQs.length - 1)}
+            onIndexChange={onMcqIndexChange}
+          />
+        </>
       ) : (
-        <article className="work-surface">
+        <>
+          <div className="tags" style={{ marginBottom: '1rem', minHeight: '1.5rem' }}>
+            {cardTags.length > 0 && !cardFilterTag && cardTags.map((tag) => (
+              <button key={tag} className="tag-filter" onClick={() => onCardFilterChange?.(tag)}>{tag}</button>
+            ))}
+            {cardFilterTag && (
+              <button className="tag-filter active" onClick={() => onCardFilterChange?.(null)}>
+                {cardFilterTag} <IconX />
+              </button>
+            )}
+          </div>
+          <article className="work-surface">
           {activeCard ? (
             <>
               <h3 className="question">{activeCard.question}</h3>
@@ -164,6 +225,7 @@ export default function PracticeView({
             </div>
           )}
         </article>
+        </>
       )}
     </section>
   );

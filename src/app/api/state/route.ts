@@ -13,8 +13,9 @@ export async function GET(request: NextRequest) {
     const dueCards = db.listDueCards(now);
     const reviews = db.listReviews();
     const mcqs = db.listMCQs();
+    const mcqReviews = db.listMCQReviews();
 
-    return NextResponse.json({ stats, notes, drafts, cards, dueCards, reviews, mcqs });
+    return NextResponse.json({ stats, notes, drafts, cards, dueCards, reviews, mcqs, mcqReviews });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   } finally {

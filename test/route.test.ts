@@ -21,6 +21,8 @@ test('state route returns valid JSON', async () => {
   expect(body).toHaveProperty('reviews');
   expect(body).toHaveProperty('mcqs');
   expect(Array.isArray(body.mcqs)).toBe(true);
+  expect(body).toHaveProperty('mcqReviews');
+  expect(Array.isArray(body.mcqReviews)).toBe(true);
 });
 
 test('sync route handles valid request', async () => {
@@ -77,11 +79,7 @@ test('generate-all route creates drafts from all notes', async () => {
   expect(body.drafts[0]).toHaveProperty('expectedAnswer');
 
   const cleanDb = createAppDatabase();
-  cleanDb.db.prepare('DELETE FROM reviews').run();
-  cleanDb.db.prepare('DELETE FROM schedules').run();
-  cleanDb.db.prepare('DELETE FROM cards').run();
-  cleanDb.db.prepare('DELETE FROM card_drafts').run();
-  cleanDb.db.prepare('DELETE FROM notes').run();
+  cleanDb.db.prepare("DELETE FROM notes WHERE notion_page_id IN ('gen-test-page-1', 'mcq-gen-page-1')").run();
   cleanDb.close();
 });
 
@@ -111,11 +109,6 @@ test('generate-all route creates MCQs alongside drafts', async () => {
   expect(body.mcqs[0]).toHaveProperty('options');
 
   const cleanDb = createAppDatabase();
-  cleanDb.db.prepare('DELETE FROM reviews').run();
-  cleanDb.db.prepare('DELETE FROM schedules').run();
-  cleanDb.db.prepare('DELETE FROM cards').run();
-  cleanDb.db.prepare('DELETE FROM card_drafts').run();
-  cleanDb.db.prepare('DELETE FROM mcq_questions').run();
-  cleanDb.db.prepare('DELETE FROM notes').run();
+  cleanDb.db.prepare("DELETE FROM notes WHERE notion_page_id IN ('gen-test-page-1', 'mcq-gen-page-1')").run();
   cleanDb.close();
 });

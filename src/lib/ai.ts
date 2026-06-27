@@ -172,22 +172,44 @@ function createOfflineProvider(): AiProvider {
     },
     async generateMCQs(note: NoteInput): Promise<MCQ[]> {
       const tags = Array.isArray(note.tags) ? note.tags : [];
-      const sentence = firstUsefulSentence(note.content) || note.title;
-      const words = sentence.split(/\s+/).filter(w => w.length > 3);
-      const correctWord = words.length > 0 ? words[Math.floor(words.length / 2)] : note.title;
-      const options = [
-        `The key concept described is ${correctWord}.`,
-        `The key concept described is the opposite of ${correctWord}.`,
-        correctWord.length > 0 ? `${correctWord} is unrelated to this topic.` : 'None of the above.',
-        correctWord.length > 0 ? `${correctWord} only applies to NoSQL databases.` : 'All of the above.',
-      ];
-      return [{
-        question: `Which statement best describes ${note.title}?`,
-        options,
-        correctIndex: 0,
-        explanation: sentence,
-        tags,
-      }];
+      const sentences = (note.content || '').split(/\n|(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 20);
+      const fallback = note.title;
+      const result: MCQ[] = [];
+      const used = new Set<string>();
+      for (let i = 0; i < Math.min(3, sentences.length || 1); i++) {
+        const sentence = sentences[i] || fallback;
+        const words = sentence.split(/\s+/).filter((w: string) => w.length > 3 && !used.has(w.toLowerCase()));
+        if (words.length === 0) continue;
+        const correctWord = words[Math.floor(words.length / 2)];
+        used.add(correctWord.toLowerCase());
+        result.push({
+          question: `Which statement best describes ${sentence.length > 60 ? sentence.slice(0, 60) + '...' : sentence}?`,
+          options: [
+            `The key concept is ${correctWord}.`,
+            `The key concept is the opposite of ${correctWord}.`,
+            `${correctWord} is unrelated to this topic.`,
+            `${correctWord} only applies to NoSQL databases.`,
+          ],
+          correctIndex: 0,
+          explanation: sentence,
+          tags,
+        });
+      }
+      if (result.length === 0) {
+        result.push({
+          question: `Which statement best describes ${note.title}?`,
+          options: [
+            'The described concept is accurate.',
+            'The described concept is the opposite.',
+            'This concept does not exist.',
+            'This concept only applies to databases.',
+          ],
+          correctIndex: 0,
+          explanation: fallback,
+          tags,
+        });
+      }
+      return result;
     },
   };
 }
@@ -247,7 +269,7 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
     },
     async generateMCQs(note: NoteInput): Promise<MCQ[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Generate 2-3 multiple-choice questions from the note for interview practice. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
+        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
         { role: 'user', content: JSON.stringify(note) },
       ]);
       return parseMCQs(content);

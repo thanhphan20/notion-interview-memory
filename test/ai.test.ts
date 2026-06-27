@@ -57,7 +57,7 @@ test('createAiProvider supports deterministic offline mode', async () => {
   expect(drafts[0].tags[0]).toBe('system-design');
 });
 
-test('generateMCQs from offline provider returns a deterministic MCQ', async () => {
+test('generateMCQs from offline provider returns multiple deterministic MCQs', async () => {
   const provider = createAiProvider({ provider: 'offline' });
   const note: NoteInput = {
     title: 'B+Tree Indexing',
@@ -65,15 +65,17 @@ test('generateMCQs from offline provider returns a deterministic MCQ', async () 
     tags: ['Databases'],
   };
   const mcqs = await provider.generateMCQs(note);
-  expect(mcqs).toHaveLength(1);
-  expect(mcqs[0]).toHaveProperty('question');
-  expect(mcqs[0]).toHaveProperty('options');
-  expect(mcqs[0].options).toHaveLength(4);
-  expect(typeof mcqs[0].correctIndex).toBe('number');
-  expect(mcqs[0].correctIndex).toBeGreaterThanOrEqual(0);
-  expect(mcqs[0].correctIndex).toBeLessThan(4);
-  expect(mcqs[0]).toHaveProperty('explanation');
-  expect(mcqs[0].tags).toEqual(['Databases']);
+  expect(mcqs.length).toBeGreaterThanOrEqual(1);
+  for (const mcq of mcqs) {
+    expect(mcq).toHaveProperty('question');
+    expect(mcq).toHaveProperty('options');
+    expect(mcq.options).toHaveLength(4);
+    expect(typeof mcq.correctIndex).toBe('number');
+    expect(mcq.correctIndex).toBeGreaterThanOrEqual(0);
+    expect(mcq.correctIndex).toBeLessThan(4);
+    expect(mcq).toHaveProperty('explanation');
+    expect(mcq.tags).toEqual(['Databases']);
+  }
 });
 
 test('parseMCQs validates correctIndex bounds and rejects invalid index', () => {
