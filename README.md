@@ -6,10 +6,13 @@ spaced review practice.
 ## What It Does
 
 - Syncs selected pages from one Notion database into local notes.
-- Converts synced notes into open-recall interview question drafts via AI.
-- Keeps drafts out of review until you approve them (quality gate).
+- Converts synced notes into both open-recall interview question drafts and multiple-choice questions (MCQs) via AI.
+- Open-recall drafts require approval before entering review; MCQs are auto-approved and available immediately.
 - Runs interview practice from due FSRS-style schedules.
 - Supports optional AI answer critique while keeping the final grade user-controlled.
+- MCQ practice includes shuffle, question-number navigation, and correct/incorrect tracking.
+- Merges open-recall and MCQ reviews into a unified history timeline with type badges.
+- Supports tag filtering across practice, drafts, and history views.
 - Stores all learning state locally in SQLite under `data/app.sqlite`.
 
 ## Tech Stack
@@ -57,17 +60,23 @@ src/
 │   ├── ui/               Primitives: Button, Card, Tag, Toast, MetricCard
 │   ├── Sidebar.tsx       Navigation sidebar
 │   ├── TopBar.tsx        Stats bar
-│   ├── PracticeView.tsx  Answer → critique → self-grade workflow
-│   ├── DraftsView.tsx    Draft approval queue
+│   ├── PracticeView.tsx  Open-recall answer → critique → self-grade
+│   ├── MultipleChoiceView.tsx  MCQ practice with nav circles & shuffle
+│   ├── DraftsView.tsx    Draft approval queue + Generate MCQs
 │   ├── NotesView.tsx     Synced note list
-│   ├── HistoryView.tsx   Past reviews with rating badges
+│   ├── HistoryView.tsx   Merged timeline (open-recall + MCQ reviews)
 │   └── SettingsView.tsx  Notion & AI config form
-└── lib/
-    ├── ai.ts             AI provider interface & output parsing
-    ├── database.ts       SQLite schema, migrations, CRUD
-    ├── mock-data.ts      Mock data for offline preview
-    ├── notion.ts         Notion API sync & block extraction
-    └── scheduler.ts      FSRS-style spaced repetition
+├── lib/
+│   ├── ai.ts             AI provider interface & output parsing
+│   ├── database.ts       SQLite CRUD
+│   ├── migrate.ts        SQL migration runner
+│   ├── mock-data.ts      Mock data for offline preview
+│   ├── notion.ts         Notion API sync & block extraction
+│   └── scheduler.ts      FSRS-style spaced repetition
+└── migrations/
+    ├── 001-initial.ts     Core schema (notes, drafts, cards, schedules, reviews)
+    ├── 002-mcq-questions.ts  mcq_questions table
+    └── 003-mcq-reviews.ts    mcq_reviews table
 ```
 
 ## Configuration
@@ -89,6 +98,8 @@ variables (see `.env.example`).
 
 ## Review Flow
 
+### Open-Recall (Cards)
+
 1. Sync selected Notion topics.
 2. Generate drafts from a synced note.
 3. Approve useful drafts.
@@ -97,6 +108,18 @@ variables (see `.env.example`).
 6. Self-grade with `Again`, `Hard`, `Good`, or `Easy`.
 
 The self-grade is the only input used for scheduling.
+
+### Multiple Choice (MCQs)
+
+1. MCQs are auto-generated alongside drafts and auto-approved — no approval step.
+2. Practice MCQs from the sidebar; options shuffle on load.
+3. Select an answer — correctness is recorded immediately in review history.
+4. Navigate between questions using numbered circles; answered state persists per session.
+
+### History
+
+Both review types appear in a merged timeline on the History screen, with type badges
+(`Open Recall` / `Multiple Choice`) and filterable by type and tag.
 
 ## Design System
 

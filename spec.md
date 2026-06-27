@@ -1,8 +1,8 @@
 ---
 title: Notion Interview Memory Application Specification
-version: 1.1
+version: 1.2
 date_created: 2026-06-24
-last_updated: 2026-06-25
+last_updated: 2026-06-27
 owner: Local project owner
 tags: [architecture, design, app, notion, spaced-repetition, interview-practice]
 ---
@@ -66,6 +66,11 @@ Assumptions:
 | Review | A completed practice attempt with user answer, rating, optional AI feedback, elapsed time, and timestamp. |
 | Self-grade | The user's final review rating: `again`, `hard`, `good`, or `easy`. |
 | SQLite | Local embedded relational database used for durable state. |
+| MCQ | Multiple Choice Question. Auto-approved AI-generated questions with 4 options and one correct answer. No draft queue — MCQs enter practice immediately. |
+| MCQ Question | A stored multiple-choice question with options, correct index, explanation, and tags. |
+| MCQ Review | A completed MCQ practice attempt recording the user's selected index, correctness, and timestamp. |
+| Migration | A numbered SQL migration file in `src/migrations/` applied in order via `_migrations` tracking table. |
+| Tag Filter | A dropdown that filters visible items by tag. Applied client-side in the SPA for MCQs, card drafts, open recall cards, and review history. |
 
 ## 3. Requirements, Constraints & Guidelines
 
@@ -89,6 +94,14 @@ Assumptions:
 - **REQ-018**: The app shall provide an offline deterministic AI provider for local testing.
 - **REQ-019**: The app shall provide an OpenAI-compatible provider mode for real AI generation and critique.
 - **REQ-020**: The app shall keep raw Notion content and review state separate.
+- **REQ-021**: The app shall generate MCQs alongside open-recall card drafts from synced notes.
+- **REQ-022**: The app shall auto-approve generated MCQs — no draft queue, available immediately for practice.
+- **REQ-023**: The app shall track MCQ review history (selected index, correct/incorrect, timestamp) in `mcq_reviews`.
+- **REQ-024**: The app shall merge MCQ reviews and open-recall card reviews into a unified history view with type badges.
+- **REQ-025**: The app shall shuffle MCQ options on load and provide a shuffle button.
+- **REQ-026**: The app shall provide question navigation (numbered circles) for MCQ practice with current, answered-correct, answered-incorrect states.
+- **REQ-027**: The app shall support tag filtering across all views: Practice (open recall + MCQs), Drafts, and History.
+- **REQ-028**: The app shall use a numbered SQL migration system (`src/migrations/`) with a `_migrations` tracking table.
 
 - **SEC-001**: The app shall not commit real Notion tokens, AI API keys, or SQLite data files.
 - **SEC-002**: Secrets shall be stored only in local settings, local environment variables, or local ignored files.
@@ -153,6 +166,9 @@ Assumptions:
 {
   async generateCards(note) {
     return CardDraft[];
+  },
+  async generateMCQs(note) {
+    return MCQ[];
   },
   async critiqueAnswer({ card, answer }) {
     return AnswerCritique;
@@ -222,7 +238,61 @@ Assumptions:
 }
 ```
 
-### 4.8 Review Contract
+### 4.8 MCQ Contract
+
+```json
+{
+  "question": "What is the primary function of a load balancer?",
+  "options": [
+    "Distribute traffic across healthy backends",
+    "Encrypt network packets",
+    "Compress database queries",
+    "Cache static assets"
+  ],
+  "correctIndex": 0,
+  "explanation": "A load balancer distributes incoming traffic across healthy backend servers.",
+  "tags": ["System Design"]
+}
+```
+
+### 4.9 MCQQuestion Contract
+
+```json
+{
+  "id": 1,
+  "noteId": 1,
+  "question": "What is the primary function of a load balancer?",
+  "options": ["Distribute traffic...", "Encrypt...", "Compress...", "Cache..."],
+  "correctIndex": 0,
+  "explanation": "A load balancer distributes...",
+  "tags": ["System Design"],
+  "createdAt": "2026-06-27T08:10:00.000Z"
+}
+```
+
+### 4.10 MCQReview Contract
+
+```json
+{
+  "id": 1,
+  "mcqId": 1,
+  "question": "What is the primary function of a load balancer?",
+  "options": ["Distribute traffic...", "Encrypt...", "Compress...", "Cache..."],
+  "correctIndex": 0,
+  "selectedIndex": 0,
+  "correct": true,
+  "reviewedAt": "2026-06-27T08:20:00.000Z",
+  "tags": ["System Design"]
+}
+```
+
+### 4.11 Migration System
+
+Each migration is a file in `src/migrations/` exporting `{ id, description, up() }`.
+Migrations are applied in order by `src/lib/migrate.ts` via a `_migrations` tracking table.
+New migrations should be sequenced after the highest existing migration ID.
+
+### 4.12 Review Contract
 
 ```json
 {
@@ -253,6 +323,10 @@ Assumptions:
 | `POST` | `/api/drafts/:id/reject` | Empty object | Rejected draft. |
 | `POST` | `/api/cards/:id/critique` | `{ answer }` | AI critique. |
 | `POST` | `/api/cards/:id/review` | `{ answer, aiFeedback, rating, elapsedSeconds, reviewedAt }` | Review and updated schedule. |
+| `POST` | `/api/mcqs/generate` | Empty object | MCQs from all notes. |
+| `POST` | `/api/mcqs/:id/review` | `{ selectedIndex }` | Recorded MCQ review. |
+| `POST` | `/api/notes/generate-all` | Empty object | Drafts and MCQs from all notes. |
+| `POST` | `/api/notes/:id/generate` | Empty object | Drafts and MCQs from one note. |
 
 ## 5. Acceptance Criteria
 
@@ -267,6 +341,10 @@ Assumptions:
 - **AC-009**: Given the app restarts, When state is loaded, Then notes, drafts, cards, schedules, and reviews remain available from SQLite.
 - **AC-010**: Given no AI API key is configured, When the offline provider is selected, Then the app can still generate deterministic drafts and critique answers.
 - **AC-011**: Given `USE_MOCK = true` in `src/lib/mock-data.ts`, When the app starts, Then the UI renders with realistic mock data and all interactions (answer, critique, approve, reject, review) work locally without a backend.
+- **AC-012**: Given synced notes, When MCQs are generated, Then they are immediately available for practice (no draft queue).
+- **AC-013**: Given an MCQ, When the user selects an option, Then the answer is recorded in `mcq_reviews` and the nav circle updates with correct/incorrect state.
+- **AC-014**: Given both open-recall and MCQ reviews exist, When viewing history, Then the user sees a merged timeline with type badges (`Open Recall` / `Multiple Choice`).
+- **AC-015**: Given tag filter controls, When the user selects a tag, Then visible items are filtered to only those matching the selected tag.
 
 ## 6. Test Automation Strategy
 
@@ -366,7 +444,7 @@ If AI suggests `hard` and the user selects `good`, the schedule shall use `good`
 - `bun run lint` shall pass with no errors.
 - The app shall start with `bun run dev`.
 - `GET /` shall return the static app shell.
-- `GET /api/state` shall return valid JSON with `stats`, `notes`, `drafts`, `cards`, `dueCards`, and `reviews`.
+- `GET /api/state` shall return valid JSON with `stats`, `notes`, `drafts`, `cards`, `dueCards`, `reviews`, `mcqs`, and `mcqReviews`.
 - Tests shall cover scheduler behavior for new cards, `again`, and repeated successful reviews.
 - Tests shall cover AI output parsing and malformed output rejection.
 - Tests shall cover Notion filter construction and Notion block text extraction.

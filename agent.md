@@ -28,18 +28,38 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 | `src/components/ui/` | Reusable primitives: Button, Card, Tag, Toast, MetricCard. |
 | `src/components/Sidebar.tsx` | Navigation sidebar with 5 view buttons. |
 | `src/components/TopBar.tsx` | Stats bar (Due, Drafts, Reviews) + Refresh. |
-| `src/components/PracticeView.tsx` | Practice workflow — question, answer, critique, self-grade. |
-| `src/components/DraftsView.tsx` | Draft approval queue with Approve/Reject. |
+| `src/components/PracticeView.tsx` | Practice workflow — open-recall question, answer, critique, self-grade. |
+| `src/components/DraftsView.tsx` | Draft approval queue with Approve/Reject + "Generate More MCQs" button. |
 | `src/components/NotesView.tsx` | Synced notes with Generate Drafts / Open Notion. |
-| `src/components/HistoryView.tsx` | Past reviews with rating badges and AI feedback. |
+| `src/components/HistoryView.tsx` | Merged timeline of open-recall reviews and MCQ reviews with type badges + tag filter. |
+| `src/components/MultipleChoiceView.tsx` | MCQ practice — shuffle, question nav circles, option selection, correct/incorrect feedback. |
 | `src/components/SettingsView.tsx` | Settings form for Notion and AI configuration. |
-| `src/lib/database.ts` | SQLite schema, migrations, persistence methods, and mapping. |
+| `src/lib/database.ts` | SQLite schema, persistence methods, mapping. |
+| `src/lib/migrate.ts` | Migration runner — applies numbered SQL migrations from `src/migrations/`. |
 | `src/lib/notion.ts` | Notion API sync, database filters, and block mapping. |
-| `src/lib/ai.ts` | AI provider interface, output parsing, offline provider, and OpenAI-compatible provider. |
+| `src/lib/ai.ts` | AI provider interface (`generateCards`, `generateMCQs`, `critiqueAnswer`), output parsing, offline provider, and OpenAI-compatible provider. |
 | `src/lib/scheduler.ts` | Spaced review scheduling behavior. |
 | `src/lib/mock-data.ts` | Mock data for offline UI preview (`USE_MOCK` flag). |
+| `src/migrations/` | Numbered SQL migration files (001-initial, 002-mcq-questions, 003-mcq-reviews). |
 | `test/` | Automated tests. |
 | `data/` | Ignored local SQLite runtime data. |
+| `data/` | Ignored local SQLite runtime data. |
+
+## MCQ Rules
+
+- MCQs are auto-approved — no draft queue, available for practice immediately after generation.
+- MCQ answers are recorded to `mcq_reviews` on every selection, building review history.
+- MCQ options should be shuffled via Fisher-Yates on load; a shuffle button re-randomizes.
+- MCQ navigation uses numbered circles with states: current (selected), answered-correct (green), answered-incorrect (red), unanswered (default).
+- MCQ prompt asks AI for 5-8 questions per note; offline provider generates up to 3.
+- A "Generate More MCQs" button exists in `DraftsView` to batch-generate from all notes.
+
+## Migration System
+
+- New schema changes must be added as numbered files in `src/migrations/`.
+- Each migration exports `{ id, description, up(): string }`.
+- The `_migrations` table tracks which migrations have been applied.
+- Never modify an existing migration after it has been applied — create a new one instead.
 
 ## Non-Negotiable Requirements
 
@@ -89,6 +109,13 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 - Keep review flow efficient: question, answer, optional critique, self-grade, next card.
 - Keep settings understandable for a local private app.
 - Do not add SaaS features, accounts, billing, or multi-user permissions unless explicitly requested.
+
+## Tag Filtering
+
+- PracticeView filters both open-recall (dueCards) and MCQs by tag via `cardFilterTag` state.
+- DraftsView filters draft cards by tag.
+- HistoryView filters both open-recall reviews and MCQ reviews by tag + type filter (All / Open Recall / Multiple Choice).
+- Each tag filter dropdown lists all unique tags across the filtered item set.
 
 ## Verification Checklist
 
