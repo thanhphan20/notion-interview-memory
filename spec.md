@@ -130,7 +130,10 @@ Assumptions:
 - **PAT-006**: Put Next.js pages and page-level React components in `src/app/`.
 - **PAT-007**: Keep application entry and runtime setup controlled by Next.js configuration.
 - **PAT-008**: Put reusable UI components in `src/components/ui/`.
-- **PAT-009**: Put view-level components in `src/components/` (PracticeView, DraftsView, etc.).
+- **PAT-009**: Put view-level components in `src/components/` (OpenRecallView, MCQPracticeView, DraftsView, etc.).
+- **PAT-011**: Put shared state and event handlers in a custom hook at `src/hooks/useAppState.ts`.
+- **PAT-012**: Put API facade with mock interceptor in `src/lib/api-client.ts`.
+- **PAT-013**: Route tests shall isolate the database to a temp directory via `DATA_DIR` — never write to the real `data/app.sqlite`.
 - **PAT-010**: Put mock data for offline UI preview in `src/lib/mock-data.ts`.
 
 ## 4. Interfaces & Data Contracts

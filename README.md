@@ -55,19 +55,23 @@ src/
 │   ├── api/              Next.js API route handlers
 │   ├── globals.css       Global styles (Orange/Geist tokens, typography)
 │   ├── layout.tsx        Root layout
-│   └── page.tsx          SPA container (state + API logic)
+│   └── page.tsx          Thin SPA shell — component map + view routing
 ├── components/
 │   ├── ui/               Primitives: Button, Card, Tag, Toast, MetricCard
 │   ├── Sidebar.tsx       Navigation sidebar
 │   ├── TopBar.tsx        Stats bar
-│   ├── PracticeView.tsx  Open-recall answer → critique → self-grade
-│   ├── MultipleChoiceView.tsx  MCQ practice with nav circles & shuffle
+│   ├── OpenRecallView.tsx    Open-recall answer → critique → self-grade
+│   ├── MCQPracticeView.tsx   MCQ tag filter + shuffle + delegates to MultipleChoiceView
+│   ├── MultipleChoiceView.tsx  MCQ nav circles, options, correct/incorrect feedback
 │   ├── DraftsView.tsx    Draft approval queue + Generate MCQs
 │   ├── NotesView.tsx     Synced note list
 │   ├── HistoryView.tsx   Merged timeline (open-recall + MCQ reviews)
 │   └── SettingsView.tsx  Notion & AI config form
+├── hooks/
+│   └── useAppState.ts    All state + event handlers extracted from page.tsx
 ├── lib/
 │   ├── ai.ts             AI provider interface & output parsing
+│   ├── api-client.ts     API facade (real + mock implementations, USE_MOCK isolated)
 │   ├── database.ts       SQLite CRUD
 │   ├── migrate.ts        SQL migration runner
 │   ├── mock-data.ts      Mock data for offline preview

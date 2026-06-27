@@ -22,13 +22,14 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 
 | Path | Responsibility |
 | --- | --- |
-| `src/app/page.tsx` | SPA container — state, API calls, view routing. |
+| `src/app/page.tsx` | SPA container — thin wiring layer, component map for view routing. |
 | `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards). |
 | `src/app/globals.css` | Design tokens, typography, layout, component styles. |
 | `src/components/ui/` | Reusable primitives: Button, Card, Tag, Toast, MetricCard. |
 | `src/components/Sidebar.tsx` | Navigation sidebar with 5 view buttons. |
 | `src/components/TopBar.tsx` | Stats bar (Due, Drafts, Reviews) + Refresh. |
-| `src/components/PracticeView.tsx` | Practice workflow — open-recall question, answer, critique, self-grade. |
+| `src/components/OpenRecallView.tsx` | Open-recall practice — question, answer, critique, self-grade. |
+| `src/components/MCQPracticeView.tsx` | MCQ practice — tag filter, shuffle, delegates to MultipleChoiceView. |
 | `src/components/DraftsView.tsx` | Draft approval queue with Approve/Reject + "Generate More MCQs" button. |
 | `src/components/NotesView.tsx` | Synced notes with Generate Drafts / Open Notion. |
 | `src/components/HistoryView.tsx` | Merged timeline of open-recall reviews and MCQ reviews with type badges + tag filter. |
@@ -39,10 +40,11 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 | `src/lib/notion.ts` | Notion API sync, database filters, and block mapping. |
 | `src/lib/ai.ts` | AI provider interface (`generateCards`, `generateMCQs`, `critiqueAnswer`), output parsing, offline provider, and OpenAI-compatible provider. |
 | `src/lib/scheduler.ts` | Spaced review scheduling behavior. |
+| `src/lib/api-client.ts` | API facade — typed client with real and mock implementations, `USE_MOCK` branching isolated here. |
 | `src/lib/mock-data.ts` | Mock data for offline UI preview (`USE_MOCK` flag). |
+| `src/hooks/useAppState.ts` | Shared state and event handlers for the SPA — all `useState`, handlers, API calls. |
 | `src/migrations/` | Numbered SQL migration files (001-initial, 002-mcq-questions, 003-mcq-reviews). |
-| `test/` | Automated tests. |
-| `data/` | Ignored local SQLite runtime data. |
+| `test/` | Automated tests (route tests use `mkdtempSync` + `DATA_DIR` for isolation). |
 | `data/` | Ignored local SQLite runtime data. |
 
 ## MCQ Rules
@@ -106,14 +108,16 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 - Optimize for interview practice and long-term recall.
 - Prefer open-recall questions over multiple-choice questions.
 - Preserve the draft approval quality gate.
-- Keep review flow efficient: question, answer, optional critique, self-grade, next card.
+- Keep open-recall review flow efficient: question, answer, optional critique, self-grade, next card.
+- View components should have focused prop sets (<10 props). Split mixed concerns (open-recall vs MCQ) into separate components.
+- Each component owns its own tag filter state — no shared filter state between views.
 - Keep settings understandable for a local private app.
 - Do not add SaaS features, accounts, billing, or multi-user permissions unless explicitly requested.
 
 ## Tag Filtering
 
-- PracticeView filters both open-recall (dueCards) and MCQs by tag via `cardFilterTag` state.
-- DraftsView filters draft cards by tag.
+- OpenRecallView filters due cards by tag via `cardFilterTag` state; MCQPracticeView has its own internal `filterTag` state.
+- DraftsView has its own internal tag filter state.
 - HistoryView filters both open-recall reviews and MCQ reviews by tag + type filter (All / Open Recall / Multiple Choice).
 - Each tag filter dropdown lists all unique tags across the filtered item set.
 
