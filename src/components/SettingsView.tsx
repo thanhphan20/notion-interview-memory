@@ -1,6 +1,8 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import Button from './ui/Button';
+import { GROQ_MODELS } from '@/lib/ai-models';
 
 interface Settings {
   notion?: {
@@ -23,17 +25,26 @@ interface SettingsViewProps {
   onSave: (e: React.FormEvent) => void;
 }
 
+const CUSTOM_MODEL_VALUE = '__custom__';
+
 export default function SettingsView({ settings, onSave }: SettingsViewProps) {
-  const providerRef = (el: HTMLSelectElement | null) => {
-    if (!el) return;
-    el.addEventListener('change', () => {
-      if (el.value === 'groq') {
-        const baseUrlInput = el.form?.querySelector('[name="baseUrl"]') as HTMLInputElement;
-        const modelInput = el.form?.querySelector('[name="model"]') as HTMLInputElement;
-        if (baseUrlInput && !baseUrlInput.value) baseUrlInput.value = 'https://api.groq.com/openai/v1';
-        if (modelInput && !modelInput.value) modelInput.value = 'llama-3.3-70b-versatile';
-      }
-    });
+  const baseUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const [provider, setProvider] = useState(settings.ai?.provider === 'groq' ? 'groq' : settings.ai?.provider || 'offline');
+  const [groqModelChoice, setGroqModelChoice] = useState(() => {
+    const model = settings.ai?.model;
+    if (model && GROQ_MODELS.some((option) => option.id === model)) return model;
+    return model ? CUSTOM_MODEL_VALUE : GROQ_MODELS[0].id;
+  });
+  const [customGroqModel, setCustomGroqModel] = useState(
+    settings.ai?.model && !GROQ_MODELS.some((option) => option.id === settings.ai?.model) ? settings.ai.model : ''
+  );
+
+  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setProvider(value);
+    if (value === 'groq' && baseUrlInputRef.current && !baseUrlInputRef.current.value) {
+      baseUrlInputRef.current.value = 'https://api.groq.com/openai/v1';
+    }
   };
 
   return (
@@ -71,7 +82,7 @@ export default function SettingsView({ settings, onSave }: SettingsViewProps) {
         </label>
         <label>
           AI provider
-          <select name="provider" ref={providerRef} defaultValue={settings.ai?.provider === 'groq' ? 'groq' : settings.ai?.provider || 'offline'}>
+          <select name="provider" value={provider} onChange={handleProviderChange}>
             <option value="offline">Offline deterministic</option>
             <option value="groq">Groq (free)</option>
             <option value="openai-compatible">OpenAI-compatible</option>
@@ -84,19 +95,44 @@ export default function SettingsView({ settings, onSave }: SettingsViewProps) {
         <label>
           AI base URL
           <input
+            ref={baseUrlInputRef}
             name="baseUrl"
             placeholder="https://api.openai.com/v1"
             defaultValue={settings.ai?.baseUrl || ''}
           />
         </label>
-        <label>
-          AI model
-          <input
-            name="model"
-            placeholder="gpt-4.1-mini"
-            defaultValue={settings.ai?.model || ''}
-          />
-        </label>
+        {provider === 'groq' ? (
+          <label>
+            AI model
+            <select
+              name={groqModelChoice === CUSTOM_MODEL_VALUE ? undefined : 'model'}
+              value={groqModelChoice}
+              onChange={(e) => setGroqModelChoice(e.target.value)}
+            >
+              {GROQ_MODELS.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+              <option value={CUSTOM_MODEL_VALUE}>Custom model ID...</option>
+            </select>
+            {groqModelChoice === CUSTOM_MODEL_VALUE && (
+              <input
+                name="model"
+                placeholder="e.g. llama-3.1-70b-versatile"
+                value={customGroqModel}
+                onChange={(e) => setCustomGroqModel(e.target.value)}
+              />
+            )}
+          </label>
+        ) : (
+          <label>
+            AI model
+            <input
+              name="model"
+              placeholder="gpt-4.1-mini"
+              defaultValue={settings.ai?.model || ''}
+            />
+          </label>
+        )}
         <Button type="submit">Save Settings</Button>
       </form>
     </section>

@@ -10,7 +10,12 @@ export async function POST(request: NextRequest) {
       ...(db.getSetting('notion') || {}),
       ...(body || {})
     };
-    const result = await syncNotionDatabase(config);
+    const existingByPageId = new Map(
+      db.listNotes().map((note) => [note.notionPageId, { content: note.content, notionLastEditedTime: note.notionLastEditedTime }])
+    );
+    const result = await syncNotionDatabase(config, {
+      getExistingNote: (notionPageId) => existingByPageId.get(notionPageId),
+    });
     const notes = result.notes.map((note) => db.upsertNote(note));
     return NextResponse.json({ imported: notes.length, notes });
   } catch (error: any) {

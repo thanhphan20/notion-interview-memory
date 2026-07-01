@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { buildNotionDatabaseFilter, extractPlainText, mapNotionPageToNote } from '../src/lib/notion';
+import { buildNotionDatabaseFilter, extractPlainText, mapNotionPageToNote, syncNotionDatabase } from '../src/lib/notion';
 
 test('buildNotionDatabaseFilter creates an OR filter for selected topics', () => {
   const filter = buildNotionDatabaseFilter('Topic', ['System Design', 'JavaScript']);
@@ -34,6 +34,65 @@ test('mapNotionPageToNote extracts title, tags, url, and content', () => {
   expect(note.content).toBe('Layer 4 vs Layer 7.\n- Health checks matter.');
   expect(note.tags).toEqual(['System Design']);
   expect(note.sourceUrl).toBe('https://notion.so/page-1');
+});
+
+test('syncNotionDatabase skips block fetch for pages unchanged since last sync', async () => {
+  const page = {
+    id: 'page-1',
+    url: 'https://notion.so/page-1',
+    last_edited_time: '2026-06-24T09:00:00.000Z',
+    properties: { Name: { type: 'title', title: [{ plain_text: 'Load Balancing' }] } },
+  };
+  let blockFetches = 0;
+  const fetchImpl = (async (url: any) => {
+    if (String(url).includes('/databases/')) {
+      return { ok: true, json: async () => ({ results: [page], has_more: false }) } as any;
+    }
+    blockFetches += 1;
+    return { ok: true, json: async () => ({ results: [], has_more: false }) } as any;
+  }) as any;
+
+  const result = await syncNotionDatabase(
+    { token: 't', databaseId: 'd' },
+    {
+      fetch: fetchImpl,
+      getExistingNote: (id) => (id === 'page-1' ? { content: 'Cached content', notionLastEditedTime: '2026-06-24T09:00:00.000Z' } : undefined),
+    }
+  );
+
+  expect(blockFetches).toBe(0);
+  expect(result.notes[0].content).toBe('Cached content');
+});
+
+test('syncNotionDatabase refetches blocks when last_edited_time changed', async () => {
+  const page = {
+    id: 'page-1',
+    url: 'https://notion.so/page-1',
+    last_edited_time: '2026-06-25T09:00:00.000Z',
+    properties: { Name: { type: 'title', title: [{ plain_text: 'Load Balancing' }] } },
+  };
+  let blockFetches = 0;
+  const fetchImpl = (async (url: any) => {
+    if (String(url).includes('/databases/')) {
+      return { ok: true, json: async () => ({ results: [page], has_more: false }) } as any;
+    }
+    blockFetches += 1;
+    return {
+      ok: true,
+      json: async () => ({ results: [{ type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'Fresh content' }] } }], has_more: false }),
+    } as any;
+  }) as any;
+
+  const result = await syncNotionDatabase(
+    { token: 't', databaseId: 'd' },
+    {
+      fetch: fetchImpl,
+      getExistingNote: (id) => (id === 'page-1' ? { content: 'Stale content', notionLastEditedTime: '2026-06-24T09:00:00.000Z' } : undefined),
+    }
+  );
+
+  expect(blockFetches).toBe(1);
+  expect(result.notes[0].content).toBe('Fresh content');
 });
 
 test('extractPlainText supports common Notion rich text block types', () => {

@@ -19,6 +19,8 @@ export interface AnswerCritique {
   suggestedRating: string;
 }
 
+import { GROQ_MODELS } from './ai-models';
+
 export interface NoteInput {
   title: string;
   content: string;
@@ -133,7 +135,7 @@ export function createAiProvider(config: AiConfig = {}): AiProvider {
     return createOpenAiCompatibleProvider({
       ...config,
       baseUrl: config.baseUrl || 'https://api.groq.com/openai/v1',
-      model: config.model || 'llama-3.3-70b-versatile',
+      model: config.model || GROQ_MODELS[0].id,
     });
   }
   if (provider === 'openai-compatible') {

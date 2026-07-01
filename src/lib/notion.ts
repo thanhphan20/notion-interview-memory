@@ -50,6 +50,25 @@ interface NotionDatabaseFilter {
 type FetchFn = typeof fetch;
 
 const NOTION_VERSION = '2022-06-28';
+const DEFAULT_CONCURRENCY = 6;
+
+export interface ExistingNoteInfo {
+  content: string;
+  notionLastEditedTime: string;
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
 
 export function buildNotionDatabaseFilter(topicProperty: string, topics: string[]): NotionDatabaseFilter | undefined {
   const selected = (topics || []).map((topic) => String(topic).trim()).filter(Boolean);
@@ -125,8 +144,13 @@ function readTags(property: NotionProperty | undefined): string[] {
   return [];
 }
 
-export async function syncNotionDatabase(config: NotionSyncConfig, dependencies: { fetch?: FetchFn } = {}): Promise<NotionSyncResult> {
+export async function syncNotionDatabase(
+  config: NotionSyncConfig,
+  dependencies: { fetch?: FetchFn; getExistingNote?: (notionPageId: string) => ExistingNoteInfo | undefined; concurrency?: number } = {}
+): Promise<NotionSyncResult> {
   const fetchImpl = dependencies.fetch || fetch;
+  const getExistingNote = dependencies.getExistingNote;
+  const concurrency = dependencies.concurrency || DEFAULT_CONCURRENCY;
   const token = config.token || process.env.NOTION_TOKEN;
   const databaseId = config.databaseId || process.env.NOTION_DATABASE_ID;
   if (!token) throw new Error('NOTION_TOKEN is required.');
@@ -136,15 +160,18 @@ export async function syncNotionDatabase(config: NotionSyncConfig, dependencies:
   const topics = config.topics || parseCsv(process.env.NOTION_TOPIC_FILTERS || '');
   const filter = buildNotionDatabaseFilter(topicProperty, topics);
   const pages = await queryDatabase(fetchImpl, token, databaseId, filter);
-  const notes: NotionNote[] = [];
+  const mapOptions = { titleProperty: config.titleProperty || 'Name', topicProperty };
 
-  for (const page of pages) {
+  const notes = await mapWithConcurrency(pages, concurrency, async (page) => {
+    const existing = getExistingNote?.(page.id);
+    if (existing && page.last_edited_time && existing.notionLastEditedTime === page.last_edited_time) {
+      const note = mapNotionPageToNote(page, [], mapOptions);
+      note.content = existing.content;
+      return note;
+    }
     const blocks = await fetchPageBlocks(fetchImpl, token, page.id);
-    notes.push(mapNotionPageToNote(page, blocks, {
-      titleProperty: config.titleProperty || 'Name',
-      topicProperty,
-    }));
-  }
+    return mapNotionPageToNote(page, blocks, mapOptions);
+  });
 
   return {
     imported: notes.length,
