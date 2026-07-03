@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getApiClient } from '@/lib/api-client';
 import { USE_MOCK } from '@/lib/mock-data';
 
-export type ViewType = 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
+export type ViewType = 'dashboard' | 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -19,7 +19,8 @@ function shuffleArray<T>(arr: T[]): T[] {
 export function useAppState() {
   const api = getApiClient();
 
-  const [view, setView] = useState<ViewType>('practice');
+  const [view, setView] = useState<ViewType>('dashboard');
+  const [dashboard, setDashboard] = useState<any>(null);
   const [stats, setStats] = useState<any>({ dueCount: 0, draftCount: 0, reviewCount: 0, mcqReviewCount: 0 });
   const [notes, setNotes] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -275,6 +276,50 @@ export function useAppState() {
     setActiveStartedAt(Date.now());
   }, [dueCards]);
 
+  const loadDashboard = useCallback(async () => {
+    try {
+      const data = await api.getDashboard();
+      setDashboard(data);
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    }
+  }, [api, triggerStatus]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSetInterviewDate = useCallback(async (date: string | null) => {
+    try {
+      await api.setInterviewDate(date);
+      triggerStatus(date ? `Interview date set to ${date}.` : 'Interview date cleared.');
+      await loadDashboard();
+      await loadState();
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    }
+  }, [api, triggerStatus, loadDashboard, loadState]);
+
+  const handleTagClick = useCallback((tag: string) => {
+    setCardFilterTag(tag);
+    setView('practice');
+    setPracticeMode('open');
+  }, []);
+
+  const handleDrillLapses = useCallback(() => {
+    if (!dashboard?.lapses?.length) return;
+    const firstLapseCardId = dashboard.lapses[0].cardId;
+    const match = dueCards.find((c: any) => c.id === firstLapseCardId);
+    if (match) {
+      setActiveCard(match);
+      setActiveStartedAt(Date.now());
+    }
+    setView('practice');
+    setPracticeMode('open');
+  }, [dashboard, dueCards]);
+
   const handleShuffleMCQs = useCallback(() => {
     setMcqShuffled(shuffleArray(mcqShuffled.length > 0 ? mcqShuffled : mcqCards));
     setActiveMCQIndex(0);
@@ -288,11 +333,13 @@ export function useAppState() {
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
     aiCritique, practiceMode, setPracticeMode,
     activeMCQIndex, mcqAnswered, mcqShuffled, cardFilterTag,
+    dashboard,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
     handleMcqAnswer, handleMcqIndexChange, handleCardFilterChange, handleShuffleMCQs,
-    loadState,
+    handleSetInterviewDate, handleTagClick, handleDrillLapses,
+    loadState, loadDashboard,
   };
 }

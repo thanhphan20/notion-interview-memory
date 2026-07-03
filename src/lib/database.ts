@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createInitialSchedule, getDueCards, gradeReview } from './scheduler';
+import { applyInterviewDateClamp, createInitialSchedule, getDueCards, gradeReview } from './scheduler';
 import type { Schedule } from './scheduler';
 import type { CardDraft, MCQ } from './ai';
 import type { NotionNote } from './notion';
@@ -74,6 +74,37 @@ export interface MCQReview {
   tags?: string[];
 }
 
+export interface SprintTagBreakdown {
+  tag: string;
+  score: number;
+  total: number;
+}
+
+export interface Sprint {
+  id: number;
+  startedAt: string;
+  completedAt: string | null;
+  cardIds: number[];
+  mcqIds: number[];
+  score: number | null;
+  tagBreakdown: SprintTagBreakdown[] | null;
+}
+
+export interface WeaknessReportEntry {
+  tag: string;
+  wrongCount: number;
+  total: number;
+}
+
+export interface MCQDiagnostic {
+  id: number;
+  startedAt: string;
+  completedAt: string | null;
+  mcqIds: number[];
+  score: number | null;
+  weaknessReport: WeaknessReportEntry[] | null;
+}
+
 export interface DbStats {
   totalNotes: number;
   draftCount: number;
@@ -124,6 +155,21 @@ export class AppDatabase {
       VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `).run(key, JSON.stringify(value));
+  }
+
+  getInterviewDate(): string | null {
+    return this.getSetting<string>('interview_date') ?? null;
+  }
+
+  setInterviewDate(date: string): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error(`Invalid interview date format: ${date}. Expected YYYY-MM-DD.`);
+    }
+    this.setSetting('interview_date', date);
+  }
+
+  clearInterviewDate(): void {
+    this.db.prepare('DELETE FROM settings WHERE key = ?').run('interview_date');
   }
 
   upsertNote(note: NotionNote | { notionPageId: string; title: string; content: string; sourceUrl?: string; tags?: string[]; notionLastEditedTime?: string }): Note {
@@ -320,7 +366,8 @@ export class AppDatabase {
     const schedule = this.getSchedule(cardId);
     if (!schedule) throw new Error(`Schedule not found for card: ${cardId}`);
     const reviewedDate = reviewedAt instanceof Date ? reviewedAt : new Date(reviewedAt);
-    const nextSchedule = gradeReview(schedule, rating, reviewedDate);
+    const gradedSchedule = gradeReview(schedule, rating, reviewedDate);
+    const nextSchedule = applyInterviewDateClamp(gradedSchedule, this.getInterviewDate(), reviewedDate);
 
     let review: Review;
     this.withTransaction(() => {

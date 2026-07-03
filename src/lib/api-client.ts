@@ -18,6 +18,13 @@ export interface AppState {
   mcqReviews: any[];
 }
 
+export interface DashboardPayload {
+  countdown: any;
+  heatmap: any[];
+  lapses: any[];
+  dueQueue: any[];
+}
+
 export interface ApiClient {
   getState(now?: Date): Promise<AppState>;
   getSettings(): Promise<any>;
@@ -36,6 +43,8 @@ export interface ApiClient {
     elapsedSeconds: number;
   }): Promise<any>;
   recordMCQAnswer(mcqId: number, selectedIndex: number): Promise<any>;
+  getDashboard(now?: Date): Promise<DashboardPayload>;
+  setInterviewDate(date: string | null): Promise<{ interviewDate: string | null; countdown: any }>;
 }
 
 async function fetcher(path: string, options?: RequestInit): Promise<any> {
@@ -94,6 +103,16 @@ function createRealClient(): ApiClient {
       return fetcher(`/api/mcqs/${mcqId}/review`, {
         method: 'POST',
         body: JSON.stringify({ selectedIndex }),
+      });
+    },
+    async getDashboard(now) {
+      const params = now ? `?now=${now.toISOString()}` : '';
+      return fetcher(`/api/dashboard${params}`);
+    },
+    async setInterviewDate(date) {
+      return fetcher('/api/interview-date', {
+        method: 'POST',
+        body: JSON.stringify({ date }),
       });
     },
   };
@@ -196,6 +215,37 @@ function createMockClient(): ApiClient {
       };
       mockMCQReviewList = [...mockMCQReviewList, review];
       return { review };
+    },
+    async getDashboard() {
+      await delay(150);
+      return {
+        countdown: {
+          interviewDate: '2026-08-15',
+          daysUntil: 43,
+          sprintScoreAverage: null,
+          sprintCount: 0,
+          heatmapGreenPercent: 0.4,
+          status: 'active',
+        },
+        heatmap: [
+          { tag: 'System Design', retentionRate: 0.82, ratingAverageTrend: 0.12, cardCount: 8, measuredCardCount: 6, status: 'green', isColdTag: false },
+          { tag: 'Databases', retentionRate: 0.55, ratingAverageTrend: -0.05, cardCount: 6, measuredCardCount: 5, status: 'yellow', isColdTag: false },
+          { tag: 'Distributed Systems', retentionRate: 0.4, ratingAverageTrend: null, cardCount: 5, measuredCardCount: 3, status: 'red', isColdTag: false },
+          { tag: 'Networking', retentionRate: null, ratingAverageTrend: null, cardCount: 4, measuredCardCount: 0, status: 'grey', isColdTag: true },
+        ],
+        lapses: [
+          { cardId: 12, question: 'Explain load balancing tradeoffs.', lastRating: 'again', reviewedAt: new Date(Date.now() - 86400000).toISOString(), tags: ['System Design'] },
+          { cardId: 33, question: 'What is write-through caching?', lastRating: 'hard', reviewedAt: new Date(Date.now() - 172800000).toISOString(), tags: ['Databases'] },
+        ],
+        dueQueue: mockDueCards,
+      };
+    },
+    async setInterviewDate(date) {
+      await delay(80);
+      return {
+        interviewDate: date,
+        countdown: { interviewDate: date, daysUntil: date ? 30 : null, sprintScoreAverage: null, sprintCount: 0, heatmapGreenPercent: 0.4, status: date ? 'active' : 'unset' },
+      };
     },
   };
 }

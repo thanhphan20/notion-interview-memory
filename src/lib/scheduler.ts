@@ -97,3 +97,34 @@ export function gradeReview(schedule: Schedule, rating: string, reviewedAt: Date
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
+
+export function applyInterviewDateClamp(
+  schedule: Schedule,
+  interviewDate: string | null,
+  now: Date = new Date(),
+): Schedule {
+  if (!interviewDate) return schedule;
+  if (schedule.state === 'new') return schedule;
+
+  const interviewMidnight = new Date(`${interviewDate}T00:00:00.000Z`);
+  if (Number.isNaN(interviewMidnight.getTime())) return schedule;
+
+  const daysUntilInterview = Math.ceil(
+    (interviewMidnight.getTime() - now.getTime()) / 86400000,
+  );
+
+  if (daysUntilInterview < 1) return schedule;
+
+  const maxScheduledDays = daysUntilInterview - 1;
+  if (schedule.scheduledDays <= maxScheduledDays) return schedule;
+
+  const clampedDays = Math.max(0, maxScheduledDays);
+  const anchor = schedule.lastReviewedAt ? new Date(schedule.lastReviewedAt) : now;
+  const dueAt = addDays(anchor, clampedDays);
+
+  return {
+    ...schedule,
+    scheduledDays: clampedDays,
+    dueAt: dueAt.toISOString(),
+  };
+}

@@ -10,6 +10,7 @@ import DraftsView from '@/components/DraftsView';
 import NotesView from '@/components/NotesView';
 import HistoryView from '@/components/HistoryView';
 import SettingsView from '@/components/SettingsView';
+import DashboardView from '@/components/DashboardView';
 import { IconCritique, IconMC } from '@/components/ui/Icons';
 import { useAppState, ViewType } from '@/hooks/useAppState';
 
@@ -20,15 +21,25 @@ export default function SPA() {
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
     aiCritique, practiceMode, setPracticeMode,
     activeMCQIndex, mcqAnswered, mcqShuffled, cardFilterTag,
+    dashboard,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
     handleMcqAnswer, handleMcqIndexChange, handleCardFilterChange, handleShuffleMCQs,
+    handleSetInterviewDate, handleTagClick, handleDrillLapses,
     loadState,
   } = useAppState();
 
   const views: Record<ViewType, ReactNode> = {
+    dashboard: (
+      <DashboardView
+        dashboard={dashboard}
+        onSetInterviewDate={handleSetInterviewDate}
+        onTagClick={handleTagClick}
+        onDrillLapses={handleDrillLapses}
+      />
+    ),
     practice: (
       <section className="view view-enter">
         <div className="section-heading">

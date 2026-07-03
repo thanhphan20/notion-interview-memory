@@ -1045,3 +1045,196 @@ select {
   width: 14px;
   text-align: center;
 }
+
+/* Dashboard */
+.countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+}
+.countdown-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.countdown-number {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.countdown-unit {
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.countdown-date {
+  font-size: 0.75rem;
+}
+.countdown-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+.countdown-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.countdown-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.countdown-stat-label {
+  font-size: 0.675rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.countdown-unset,
+.countdown-elapsed {
+  flex-direction: row;
+}
+.countdown-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.countdown-date-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: inherit;
+}
+
+.dashboard-heatmap,
+.dashboard-due {
+  margin-bottom: var(--space-lg);
+}
+.dashboard-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.dashboard-section-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.heatmap-tile {
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.heatmap-tile:hover { transform: translateY(-1px); }
+.heatmap-green { border-left: 4px solid #4caf50; }
+.heatmap-yellow { border-left: 4px solid #ff9800; }
+.heatmap-red { border-left: 4px solid var(--danger); }
+.heatmap-grey { border-left: 4px solid var(--muted); opacity: 0.7; }
+.heatmap-tag {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+.heatmap-metric {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.heatmap-trend { color: var(--primary); font-size: 1rem; }
+.heatmap-count {
+  font-size: 0.75rem;
+}
+
+.lapses-tile {
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+}
+.lapses-empty { text-align: left; }
+.lapses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.lapses-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.lapses-list li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.875rem;
+}
+.lapse-rating {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.675rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.rating-again {
+  background: rgba(255, 82, 82, 0.15);
+  color: var(--danger);
+}
+.rating-hard {
+  background: rgba(255, 152, 0, 0.15);
+  color: var(--primary);
+}
+.lapse-question {
+  color: var(--fg);
+}
+
+.due-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.due-list li {
+  padding: 0.5rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+.btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+}
