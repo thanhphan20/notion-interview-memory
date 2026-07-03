@@ -460,6 +460,79 @@ export class AppDatabase {
     return (this.db.prepare('SELECT * FROM mcq_questions ORDER BY created_at DESC, id DESC').all() as any[]).map(mapMCQ);
   }
 
+  createSprint(cardIds: number[], mcqIds: number[]): Sprint {
+    const startedAt = new Date().toISOString();
+    const result = this.db.prepare(`
+      INSERT INTO sprints (started_at, card_ids_json, mcq_ids_json)
+      VALUES (?, ?, ?)
+    `).run(startedAt, JSON.stringify(cardIds), JSON.stringify(mcqIds)) as { lastInsertRowid: number };
+    return this.getSprint(Number(result.lastInsertRowid))!;
+  }
+
+  completeSprint(id: number, score: number, tagBreakdown: SprintTagBreakdown[]): Sprint {
+    const completedAt = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE sprints
+      SET completed_at = ?, score = ?, tag_breakdown_json = ?
+      WHERE id = ?
+    `).run(completedAt, score, JSON.stringify(tagBreakdown), id);
+    return this.getSprint(id)!;
+  }
+
+  getSprint(id: number): Sprint | undefined {
+    const row = this.db.prepare('SELECT * FROM sprints WHERE id = ?').get(id) as any;
+    return row ? mapSprint(row) : undefined;
+  }
+
+  listSprints(limit: number = 10): Sprint[] {
+    return (this.db.prepare(`
+      SELECT * FROM sprints
+      WHERE completed_at IS NOT NULL
+      ORDER BY completed_at DESC, id DESC
+      LIMIT ?
+    `).all(limit) as any[]).map(mapSprint);
+  }
+
+  getSprintScoreAverage(limit: number = 10): { average: number | null; count: number } {
+    const sprints = this.listSprints(limit);
+    if (sprints.length === 0) return { average: null, count: 0 };
+    const total = sprints.reduce((sum, s) => sum + (s.score ?? 0), 0);
+    return { average: total / sprints.length, count: sprints.length };
+  }
+
+  createMCQDiagnostic(mcqIds: number[]): MCQDiagnostic {
+    const startedAt = new Date().toISOString();
+    const result = this.db.prepare(`
+      INSERT INTO mcq_diagnostics (started_at, mcq_ids_json)
+      VALUES (?, ?)
+    `).run(startedAt, JSON.stringify(mcqIds)) as { lastInsertRowid: number };
+    return this.getMCQDiagnostic(Number(result.lastInsertRowid))!;
+  }
+
+  completeMCQDiagnostic(id: number, score: number, weaknessReport: WeaknessReportEntry[]): MCQDiagnostic {
+    const completedAt = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE mcq_diagnostics
+      SET completed_at = ?, score = ?, weakness_report_json = ?
+      WHERE id = ?
+    `).run(completedAt, score, JSON.stringify(weaknessReport), id);
+    return this.getMCQDiagnostic(id)!;
+  }
+
+  getMCQDiagnostic(id: number): MCQDiagnostic | undefined {
+    const row = this.db.prepare('SELECT * FROM mcq_diagnostics WHERE id = ?').get(id) as any;
+    return row ? mapMCQDiagnostic(row) : undefined;
+  }
+
+  listMCQDiagnostics(limit: number = 10): MCQDiagnostic[] {
+    return (this.db.prepare(`
+      SELECT * FROM mcq_diagnostics
+      WHERE completed_at IS NOT NULL
+      ORDER BY completed_at DESC, id DESC
+      LIMIT ?
+    `).all(limit) as any[]).map(mapMCQDiagnostic);
+  }
+
   stats(now: Date = new Date()): DbStats {
     const totalNotes = (this.db.prepare('SELECT COUNT(*) AS count FROM notes').get() as any).count;
     const draftCount = (this.db.prepare("SELECT COUNT(*) AS count FROM card_drafts WHERE status = 'draft'").get() as any).count;
@@ -574,6 +647,29 @@ function mapMCQReviewRow(row: any): MCQReview {
     correct: row.correct === 1,
     reviewedAt: row.reviewed_at,
     tags: row.tags_json ? JSON.parse(row.tags_json) : undefined,
+  };
+}
+
+function mapSprint(row: any): Sprint {
+  return {
+    id: row.id,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? null,
+    cardIds: JSON.parse(row.card_ids_json),
+    mcqIds: JSON.parse(row.mcq_ids_json),
+    score: row.score ?? null,
+    tagBreakdown: row.tag_breakdown_json ? JSON.parse(row.tag_breakdown_json) : null,
+  };
+}
+
+function mapMCQDiagnostic(row: any): MCQDiagnostic {
+  return {
+    id: row.id,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? null,
+    mcqIds: JSON.parse(row.mcq_ids_json),
+    score: row.score ?? null,
+    weaknessReport: row.weakness_report_json ? JSON.parse(row.weakness_report_json) : null,
   };
 }
 

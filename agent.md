@@ -23,38 +23,59 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 | Path | Responsibility |
 | --- | --- |
 | `src/app/page.tsx` | SPA container — thin wiring layer, component map for view routing. |
-| `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards). |
+| `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards, dashboard, interview-date, lapses, sprints, mcq-diagnostics). |
 | `src/app/globals.css` | Design tokens, typography, layout, component styles. |
 | `src/components/ui/` | Reusable primitives: Button, Card, Tag, Toast, MetricCard. |
-| `src/components/Sidebar.tsx` | Navigation sidebar with 5 view buttons. |
+| `src/components/Sidebar.tsx` | Navigation sidebar: Dashboard, Practice, Diagnostic, Sprint, Drafts, Notes, History, Settings. |
 | `src/components/TopBar.tsx` | Stats bar (Due, Drafts, Reviews) + Refresh. |
+| `src/components/DashboardView.tsx` | Home dashboard — Countdown + Heatmap grid + Lapses + Due Queue. |
+| `src/components/Countdown.tsx` | Countdown widget (days-to-interview + sprint avg + % green). |
+| `src/components/HeatmapTile.tsx` | Individual heatmap tile (retention %, trend arrow, status dot, cold state). |
+| `src/components/LapsesTile.tsx` | Recent-lapses list + one-click drill button. |
 | `src/components/OpenRecallView.tsx` | Open-recall practice — question, answer, critique, self-grade. |
-| `src/components/MCQPracticeView.tsx` | MCQ practice — tag filter, shuffle, delegates to MultipleChoiceView. |
+| `src/components/MCQPracticeView.tsx` | MCQ Diagnostic — fixed 15-question session ending with Weakness Report + Drill-tags CTA. |
+| `src/components/SprintView.tsx` | Fixed 20-item timed sprint (~50/50 MCQ + open-recall) with score + tag breakdown summary. |
 | `src/components/DraftsView.tsx` | Draft approval queue with Approve/Reject + "Generate More MCQs" button. |
 | `src/components/NotesView.tsx` | Synced notes with Generate Drafts / Open Notion. |
 | `src/components/HistoryView.tsx` | Merged timeline of open-recall reviews and MCQ reviews with type badges + tag filter. |
-| `src/components/MultipleChoiceView.tsx` | MCQ practice — shuffle, question nav circles, option selection, correct/incorrect feedback. |
+| `src/components/MultipleChoiceView.tsx` | Legacy freeform MCQ view — no longer entered from the app (Diagnostic replaces it). Kept for shared MCQ nav primitives. |
 | `src/components/SettingsView.tsx` | Settings form for Notion and AI configuration. |
-| `src/lib/database.ts` | SQLite schema, persistence methods, mapping. |
+| `src/lib/database.ts` | SQLite schema, persistence methods, mapping. Interview Date CRUD (`getInterviewDate` / `setInterviewDate` / `clearInterviewDate`) uses the settings key/value table. `recordReview` applies `applyInterviewDateClamp` after `gradeReview`. |
 | `src/lib/migrate.ts` | Migration runner — applies numbered SQL migrations from `src/migrations/`. |
 | `src/lib/notion.ts` | Notion API sync, database filters, and block mapping. |
 | `src/lib/ai.ts` | AI provider interface (`generateCards`, `generateMCQs`, `critiqueAnswer`), output parsing, offline provider, and OpenAI-compatible provider. |
-| `src/lib/scheduler.ts` | Spaced review scheduling behavior. |
+| `src/lib/scheduler.ts` | Pure FSRS scheduling + `applyInterviewDateClamp(schedule, interviewDate, now)` helper. `gradeReview` signature is unchanged; clamp is a separate composition step. |
+| `src/lib/heatmap.ts` | Pure `computeHeatmap(cards, reviews)` — retention rate over last 3 reviews per card, cold-tag detection, thresholds. |
+| `src/lib/lapses.ts` | Pure `computeLapses(cards, reviews, windowDays, now)` — most-recent-review-per-card that was `again`/`hard` within window. |
+| `src/lib/countdown.ts` | Pure `computeCountdown(db, now)` — assembles the dashboard countdown payload. |
+| `src/lib/sprint.ts` | Pure `pickSprintItems` + `computeSprintScore` — 20-item selection with 70/30 red-yellow weighting, score + tag breakdown. |
+| `src/lib/mcq-diagnostic.ts` | Pure `pickDiagnosticMCQs` + `computeWeaknessReport` — 15-MCQ cold-weighted selection, weakness ranking + drill-tag targets. |
 | `src/lib/api-client.ts` | API facade — typed client with real and mock implementations, `USE_MOCK` branching isolated here. |
 | `src/lib/mock-data.ts` | Mock data for offline UI preview (`USE_MOCK` flag). |
 | `src/hooks/useAppState.ts` | Shared state and event handlers for the SPA — all `useState`, handlers, API calls. |
-| `src/migrations/` | Numbered SQL migration files (001-initial, 002-mcq-questions, 003-mcq-reviews). |
+| `src/migrations/` | Numbered SQL migration files: 001-initial, 002-mcq-questions, 003-mcq-reviews, 004-sprints-and-diagnostics. |
 | `test/` | Automated tests (route tests use `mkdtempSync` + `DATA_DIR` for isolation). |
 | `data/` | Ignored local SQLite runtime data. |
+| `openspec/changes/` | OpenSpec change proposals — canonical source for design decisions (proposal, design, specs, tasks). |
 
 ## MCQ Rules
 
-- MCQs are auto-approved — no draft queue, available for practice immediately after generation.
+- MCQs are auto-approved — no draft queue, available for diagnostic immediately after generation.
 - MCQ answers are recorded to `mcq_reviews` on every selection, building review history.
-- MCQ options should be shuffled via Fisher-Yates on load; a shuffle button re-randomizes.
-- MCQ navigation uses numbered circles with states: current (selected), answered-correct (green), answered-incorrect (red), unanswered (default).
 - MCQ prompt asks AI for 5-8 questions per note; offline provider generates up to 3.
 - A "Generate More MCQs" button exists in `DraftsView` to batch-generate from all notes.
+- **MCQs are diagnostic, not memory-forming.** The user enters MCQs via the "Diagnostic" sidebar entry, which runs `pickDiagnosticMCQs` (15 MCQs weighted toward stale/cold tags) and ends with a Weakness Report + one-click drill handoff to open-recall.
+- MCQs do NOT have per-question FSRS scheduling; only aggregate history in `mcq_reviews`.
+
+## Cramming-Workflow-v2 Rules
+
+- **Interview Date is the single source of urgency.** Set via `POST /api/interview-date` (`{date: "YYYY-MM-DD"}`) or cleared with `{date: null}`. Stored in settings key/value under `interview_date`.
+- **Scheduler clamp:** When an Interview Date is set, `AppDatabase.recordReview` applies `applyInterviewDateClamp` after `gradeReview` so `scheduledDays ≤ daysUntil - 1`. Never modify `gradeReview` directly — the clamp is a composition step.
+- **Heatmap:** retention rate over the LAST 3 reviews per card (never lifetime); tags with `averageReviewsPerCard < 3` render grey/cold. Thresholds: green ≥ 0.80, yellow 0.50–0.80, red < 0.50.
+- **Sprint** is a fixed 20-item session: exactly 10 open-recall + 10 MCQ (INSUFFICIENT_DECK otherwise); 70% weighted to red/yellow tags when they exist. Full FSRS updates apply.
+- **MCQ Diagnostic** is a fixed 15-question session weighted ≥60% to cold tags (or stalest tags if none cold). Ends with Weakness Report ranked by wrong-answer rate; drill-target list = tags with ≥2 wrong, capped at 3.
+- **Lapses** = cards whose most-recent review within the last 7 days (default; configurable via `?windowDays=`) was rated `again` or `hard`. A newer `good`/`easy` review clears the lapse.
+- **Dashboard = single-payload endpoint** at `GET /api/dashboard` returning countdown + heatmap + lapses + due queue together.
 
 ## Migration System
 

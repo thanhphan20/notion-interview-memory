@@ -4,7 +4,7 @@ import {
   IconPractice, IconDrafts, IconNotes, IconHistory, IconSettings,
 } from './ui/Icons';
 
-type ViewType = 'dashboard' | 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'drafts' | 'notes' | 'history' | 'settings';
 
 interface SidebarProps {
   view: ViewType;
@@ -14,6 +14,8 @@ interface SidebarProps {
 const NAV_ITEMS: { key: ViewType; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <IconHistory /> },
   { key: 'practice', label: 'Practice', icon: <IconPractice /> },
+  { key: 'diagnostic', label: 'Diagnostic', icon: <IconDrafts /> },
+  { key: 'sprint', label: 'Sprint', icon: <IconPractice /> },
   { key: 'drafts', label: 'Drafts', icon: <IconDrafts /> },
   { key: 'notes', label: 'Notes', icon: <IconNotes /> },
   { key: 'history', label: 'History', icon: <IconHistory /> },

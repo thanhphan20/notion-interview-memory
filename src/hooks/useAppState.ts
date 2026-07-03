@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getApiClient } from '@/lib/api-client';
 import { USE_MOCK } from '@/lib/mock-data';
 
-export type ViewType = 'dashboard' | 'practice' | 'drafts' | 'notes' | 'history' | 'settings';
+export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'drafts' | 'notes' | 'history' | 'settings';
 
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -21,6 +21,10 @@ export function useAppState() {
 
   const [view, setView] = useState<ViewType>('dashboard');
   const [dashboard, setDashboard] = useState<any>(null);
+  const [sprintSession, setSprintSession] = useState<any>(null);
+  const [sprintResult, setSprintResult] = useState<any>(null);
+  const [diagnosticSession, setDiagnosticSession] = useState<any>(null);
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
   const [stats, setStats] = useState<any>({ dueCount: 0, draftCount: 0, reviewCount: 0, mcqReviewCount: 0 });
   const [notes, setNotes] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -308,6 +312,73 @@ export function useAppState() {
     setPracticeMode('open');
   }, []);
 
+  const handleStartSprint = useCallback(async () => {
+    setSprintResult(null);
+    setView('sprint');
+    try {
+      const data = await api.startSprint();
+      setSprintSession({ sprintId: data.sprint.id, cards: data.cards, mcqs: data.mcqs });
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+      setView('dashboard');
+    }
+  }, [api, triggerStatus]);
+
+  const handleCompleteSprint = useCallback(async (payload: { ratings: any[]; mcqAnswers: any[] }) => {
+    if (!sprintSession) return;
+    try {
+      const data = await api.completeSprint(sprintSession.sprintId, payload);
+      setSprintResult({ score: data.score, tagBreakdown: data.tagBreakdown });
+      setSprintSession(null);
+      await Promise.all([loadDashboard(), loadState(true)]);
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    }
+  }, [api, sprintSession, triggerStatus, loadDashboard, loadState]);
+
+  const handleExitSprint = useCallback(() => {
+    setSprintSession(null);
+    setSprintResult(null);
+    setView('dashboard');
+  }, []);
+
+  const handleStartDiagnostic = useCallback(async () => {
+    setDiagnosticResult(null);
+    setView('diagnostic');
+    try {
+      const data = await api.startMCQDiagnostic();
+      setDiagnosticSession({ diagnosticId: data.diagnostic.id, mcqs: data.mcqs });
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+      setView('dashboard');
+    }
+  }, [api, triggerStatus]);
+
+  const handleCompleteDiagnostic = useCallback(async (payload: { answers: any[] }) => {
+    if (!diagnosticSession) return;
+    try {
+      const data = await api.completeMCQDiagnostic(diagnosticSession.diagnosticId, payload);
+      setDiagnosticResult({ score: data.score, weaknessReport: data.weaknessReport });
+      await Promise.all([loadDashboard(), loadState(true)]);
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    }
+  }, [api, diagnosticSession, triggerStatus, loadDashboard, loadState]);
+
+  const handleExitDiagnostic = useCallback(() => {
+    setDiagnosticSession(null);
+    setDiagnosticResult(null);
+    setView('dashboard');
+  }, []);
+
+  const handleDrillTags = useCallback((tags: string[]) => {
+    setDiagnosticSession(null);
+    setDiagnosticResult(null);
+    setCardFilterTag(tags[0] ?? null);
+    setView('practice');
+    setPracticeMode('open');
+  }, []);
+
   const handleDrillLapses = useCallback(() => {
     if (!dashboard?.lapses?.length) return;
     const firstLapseCardId = dashboard.lapses[0].cardId;
@@ -334,12 +405,16 @@ export function useAppState() {
     aiCritique, practiceMode, setPracticeMode,
     activeMCQIndex, mcqAnswered, mcqShuffled, cardFilterTag,
     dashboard,
+    sprintSession, sprintResult,
+    diagnosticSession, diagnosticResult,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
     handleMcqAnswer, handleMcqIndexChange, handleCardFilterChange, handleShuffleMCQs,
     handleSetInterviewDate, handleTagClick, handleDrillLapses,
+    handleStartSprint, handleCompleteSprint, handleExitSprint,
+    handleStartDiagnostic, handleCompleteDiagnostic, handleExitDiagnostic, handleDrillTags,
     loadState, loadDashboard,
   };
 }

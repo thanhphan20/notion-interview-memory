@@ -20,12 +20,13 @@ export function computeCountdown(db: AppDatabase, now: Date = new Date()): Count
   const tiles = computeHeatmap(db.listCards(), db.listReviews());
   const nonCold = tiles.filter((t) => !t.isColdTag);
   const greenPercent = nonCold.length === 0 ? null : nonCold.filter((t) => t.status === 'green').length / nonCold.length;
+  const sprintStats = db.getSprintScoreAverage(10);
 
   return {
     interviewDate,
     daysUntil,
-    sprintScoreAverage: null,
-    sprintCount: 0,
+    sprintScoreAverage: sprintStats.average,
+    sprintCount: sprintStats.count,
     heatmapGreenPercent: greenPercent,
     status,
   };

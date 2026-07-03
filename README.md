@@ -6,14 +6,26 @@ spaced review practice.
 ## What It Does
 
 - Syncs selected pages from one Notion database into local notes.
-- Converts synced notes into both open-recall interview question drafts and multiple-choice questions (MCQs) via AI.
-- Open-recall drafts require approval before entering review; MCQs are auto-approved and available immediately.
-- Runs interview practice from due FSRS-style schedules.
+- Converts synced notes into open-recall card drafts and multiple-choice questions (MCQs) via AI.
+- Open-recall drafts require approval before entering review; MCQs are auto-approved and used as a diagnostic breadth scanner.
+- **Dashboard home:** Interview-date countdown, tag-level retention Heatmap, recent Lapses tile, and Due Queue in one view.
+- **Interview Date + FSRS clamp:** Set a single target date; scheduler caps `scheduledDays` to `daysUntil − 1` so every card gets one more review before the interview.
+- **MCQ Diagnostic:** 15-question weakness scanner weighted toward stale/cold tags; ends with a Weakness Report + one-click "Drill these tags" open-recall handoff.
+- **Sprint:** Fixed 20-item pressure test (~50/50 MCQ + open-recall, 70% weighted to red/yellow tags) with full FSRS updates and score history.
 - Supports optional AI answer critique while keeping the final grade user-controlled.
-- MCQ practice includes shuffle, question-number navigation, and correct/incorrect tracking.
 - Merges open-recall and MCQ reviews into a unified history timeline with type badges.
 - Supports tag filtering across practice, drafts, and history views.
 - Stores all learning state locally in SQLite under `data/app.sqlite`.
+
+## Cramming Quickstart
+
+Optimized for a job seeker with a 3–6 week interview runway:
+
+1. **Set your Interview Date** — the dashboard countdown becomes your north star; every FSRS schedule clamps to it.
+2. **Run an MCQ Diagnostic** — 15 questions, ~8 min. The Weakness Report tells you which 1–3 tags to drill.
+3. **Drill the weak tags** — one-click handoff from Weakness Report or Heatmap tile → open-recall practice filtered to that tag.
+4. **Weekly Sprint** — 20 items, same shape every time so you can benchmark yourself week-over-week. Score feeds the Countdown running average.
+5. **Night-before ritual** — the Lapses tile shows every card you rated `again` or `hard` in the last 7 days; one click drills them.
 
 ## Tech Stack
 
@@ -53,16 +65,25 @@ connect the real API.
 src/
 ├── app/
 │   ├── api/              Next.js API route handlers
+│   │   ├── dashboard/    GET dashboard payload (countdown + heatmap + lapses + due queue)
+│   │   ├── interview-date/  GET/POST Interview Date
+│   │   ├── lapses/       GET recent lapses (configurable window)
+│   │   ├── sprints/      POST start / :id/complete
+│   │   └── mcq-diagnostics/  POST start / :id/complete
 │   ├── globals.css       Global styles (Orange/Geist tokens, typography)
 │   ├── layout.tsx        Root layout
 │   └── page.tsx          Thin SPA shell — component map + view routing
 ├── components/
 │   ├── ui/               Primitives: Button, Card, Tag, Toast, MetricCard
-│   ├── Sidebar.tsx       Navigation sidebar
+│   ├── Sidebar.tsx       Navigation sidebar (Dashboard/Practice/Diagnostic/Sprint/…)
 │   ├── TopBar.tsx        Stats bar
+│   ├── DashboardView.tsx    Home — Countdown + Heatmap grid + Lapses + Due Queue
+│   ├── Countdown.tsx     Mission-control countdown (days · sprint avg · % green)
+│   ├── HeatmapTile.tsx   Tag tile: retention %, trend arrow, status dot, cold-state
+│   ├── LapsesTile.tsx    Recent lapses + one-click drill
 │   ├── OpenRecallView.tsx    Open-recall answer → critique → self-grade
-│   ├── MCQPracticeView.tsx   MCQ tag filter + shuffle + delegates to MultipleChoiceView
-│   ├── MultipleChoiceView.tsx  MCQ nav circles, options, correct/incorrect feedback
+│   ├── MCQPracticeView.tsx   MCQ Diagnostic session + Weakness Report + drill handoff
+│   ├── SprintView.tsx    Fixed 20-item timed sprint + score summary
 │   ├── DraftsView.tsx    Draft approval queue + Generate MCQs
 │   ├── NotesView.tsx     Synced note list
 │   ├── HistoryView.tsx   Merged timeline (open-recall + MCQ reviews)
@@ -72,15 +93,21 @@ src/
 ├── lib/
 │   ├── ai.ts             AI provider interface & output parsing
 │   ├── api-client.ts     API facade (real + mock implementations, USE_MOCK isolated)
-│   ├── database.ts       SQLite CRUD
+│   ├── countdown.ts      Pure countdown-payload assembly (days, sprint avg, green %)
+│   ├── database.ts       SQLite CRUD (includes clamp integration in recordReview)
+│   ├── heatmap.ts        Pure computeHeatmap — retention rate, trend, cold tags
+│   ├── lapses.ts         Pure computeLapses — recent again/hard reviews
+│   ├── mcq-diagnostic.ts Pure pickDiagnosticMCQs + computeWeaknessReport
 │   ├── migrate.ts        SQL migration runner
 │   ├── mock-data.ts      Mock data for offline preview
 │   ├── notion.ts         Notion API sync & block extraction
-│   └── scheduler.ts      FSRS-style spaced repetition
+│   ├── scheduler.ts      FSRS-style spaced repetition + applyInterviewDateClamp
+│   └── sprint.ts         Pure pickSprintItems + computeSprintScore
 └── migrations/
     ├── 001-initial.ts     Core schema (notes, drafts, cards, schedules, reviews)
     ├── 002-mcq-questions.ts  mcq_questions table
-    └── 003-mcq-reviews.ts    mcq_reviews table
+    ├── 003-mcq-reviews.ts    mcq_reviews table
+    └── 004-sprints-and-diagnostics.ts  sprints + mcq_diagnostics session tables
 ```
 
 ## Configuration

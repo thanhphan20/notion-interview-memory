@@ -6,12 +6,12 @@ import TopBar from '@/components/TopBar';
 import Toast from '@/components/ui/Toast';
 import OpenRecallView from '@/components/OpenRecallView';
 import MCQPracticeView from '@/components/MCQPracticeView';
+import SprintView from '@/components/SprintView';
 import DraftsView from '@/components/DraftsView';
 import NotesView from '@/components/NotesView';
 import HistoryView from '@/components/HistoryView';
 import SettingsView from '@/components/SettingsView';
 import DashboardView from '@/components/DashboardView';
-import { IconCritique, IconMC } from '@/components/ui/Icons';
 import { useAppState, ViewType } from '@/hooks/useAppState';
 
 export default function SPA() {
@@ -19,15 +19,19 @@ export default function SPA() {
     view, setView, stats, notes, drafts, dueCards, reviews, settings,
     mcqReviews, status, activeCard,
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
-    aiCritique, practiceMode, setPracticeMode,
-    activeMCQIndex, mcqAnswered, mcqShuffled, cardFilterTag,
+    aiCritique,
+    cardFilterTag,
     dashboard,
+    sprintSession, sprintResult,
+    diagnosticSession, diagnosticResult,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
-    handleMcqAnswer, handleMcqIndexChange, handleCardFilterChange, handleShuffleMCQs,
+    handleCardFilterChange,
     handleSetInterviewDate, handleTagClick, handleDrillLapses,
+    handleStartSprint, handleCompleteSprint, handleExitSprint,
+    handleStartDiagnostic, handleCompleteDiagnostic, handleExitDiagnostic, handleDrillTags,
     loadState,
   } = useAppState();
 
@@ -45,50 +49,42 @@ export default function SPA() {
         <div className="section-heading">
           <div>
             <h2>Interview Practice</h2>
-            <p className="muted">Answer due cards aloud or in writing, then self-grade.</p>
+            <p className="muted">Answer due cards, get optional AI critique, self-grade. Full FSRS scheduling.</p>
           </div>
         </div>
-        <div className="practice-tabs">
-          <button
-            className={`practice-tab ${practiceMode === 'open' ? 'active' : ''}`}
-            onClick={() => setPracticeMode('open')}
-          >
-            <IconCritique />
-            Open Recall
-          </button>
-          <button
-            className={`practice-tab ${practiceMode === 'mcq' ? 'active' : ''}`}
-            onClick={() => setPracticeMode('mcq')}
-          >
-            <IconMC />
-            Multiple Choice
-          </button>
-        </div>
-        {practiceMode === 'open' ? (
-          <OpenRecallView
-            activeCard={activeCard}
-            userAnswer={userAnswer}
-            setUserAnswer={setUserAnswer}
-            showAnswerKey={showAnswerKey}
-            setShowAnswerKey={setShowAnswerKey}
-            aiCritique={aiCritique}
-            onCritique={handleRequestCritique}
-            onReview={handleSubmitReview}
-            dueCards={dueCards}
-            cardFilterTag={cardFilterTag}
-            onCardFilterChange={handleCardFilterChange}
-          />
-        ) : (
-          <MCQPracticeView
-            mcqs={mcqShuffled}
-            mcqAnswered={mcqAnswered}
-            onMcqAnswer={handleMcqAnswer}
-            activeMCQIndex={activeMCQIndex}
-            onMcqIndexChange={handleMcqIndexChange}
-            onShuffleMCQs={handleShuffleMCQs}
-          />
-        )}
+        <OpenRecallView
+          activeCard={activeCard}
+          userAnswer={userAnswer}
+          setUserAnswer={setUserAnswer}
+          showAnswerKey={showAnswerKey}
+          setShowAnswerKey={setShowAnswerKey}
+          aiCritique={aiCritique}
+          onCritique={handleRequestCritique}
+          onReview={handleSubmitReview}
+          dueCards={dueCards}
+          cardFilterTag={cardFilterTag}
+          onCardFilterChange={handleCardFilterChange}
+        />
       </section>
+    ),
+    sprint: (
+      <SprintView
+        session={sprintSession}
+        result={sprintResult}
+        onStart={handleStartSprint}
+        onComplete={handleCompleteSprint}
+        onExit={handleExitSprint}
+      />
+    ),
+    diagnostic: (
+      <MCQPracticeView
+        session={diagnosticSession}
+        result={diagnosticResult}
+        onStart={handleStartDiagnostic}
+        onComplete={handleCompleteDiagnostic}
+        onDrillTags={handleDrillTags}
+        onExit={handleExitDiagnostic}
+      />
     ),
     drafts: (
       <DraftsView

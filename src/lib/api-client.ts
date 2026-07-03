@@ -45,6 +45,10 @@ export interface ApiClient {
   recordMCQAnswer(mcqId: number, selectedIndex: number): Promise<any>;
   getDashboard(now?: Date): Promise<DashboardPayload>;
   setInterviewDate(date: string | null): Promise<{ interviewDate: string | null; countdown: any }>;
+  startSprint(): Promise<{ sprint: any; cards: any[]; mcqs: any[] }>;
+  completeSprint(sprintId: number, body: { ratings: any[]; mcqAnswers: any[] }): Promise<{ sprint: any; score: number; tagBreakdown: any[] }>;
+  startMCQDiagnostic(): Promise<{ diagnostic: any; mcqs: any[] }>;
+  completeMCQDiagnostic(diagnosticId: number, body: { answers: any[] }): Promise<{ diagnostic: any; score: number; weaknessReport: { entries: any[]; drillTargetTags: string[] } }>;
 }
 
 async function fetcher(path: string, options?: RequestInit): Promise<any> {
@@ -113,6 +117,24 @@ function createRealClient(): ApiClient {
       return fetcher('/api/interview-date', {
         method: 'POST',
         body: JSON.stringify({ date }),
+      });
+    },
+    async startSprint() {
+      return fetcher('/api/sprints/start', { method: 'POST', body: '{}' });
+    },
+    async completeSprint(sprintId, body) {
+      return fetcher(`/api/sprints/${sprintId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    async startMCQDiagnostic() {
+      return fetcher('/api/mcq-diagnostics/start', { method: 'POST', body: '{}' });
+    },
+    async completeMCQDiagnostic(diagnosticId, body) {
+      return fetcher(`/api/mcq-diagnostics/${diagnosticId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify(body),
       });
     },
   };
@@ -246,6 +268,22 @@ function createMockClient(): ApiClient {
         interviewDate: date,
         countdown: { interviewDate: date, daysUntil: date ? 30 : null, sprintScoreAverage: null, sprintCount: 0, heatmapGreenPercent: 0.4, status: date ? 'active' : 'unset' },
       };
+    },
+    async startSprint() {
+      await delay(200);
+      throw new Error('Sprint not available in mock mode — use USE_MOCK=false to try sprints.');
+    },
+    async completeSprint(_id, _body) {
+      await delay(200);
+      throw new Error('Sprint not available in mock mode.');
+    },
+    async startMCQDiagnostic() {
+      await delay(200);
+      throw new Error('MCQ diagnostic not available in mock mode — use USE_MOCK=false to try.');
+    },
+    async completeMCQDiagnostic(_id, _body) {
+      await delay(200);
+      throw new Error('MCQ diagnostic not available in mock mode.');
     },
   };
 }
