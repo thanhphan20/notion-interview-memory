@@ -1534,3 +1534,9 @@ select {
   gap: var(--space-sm);
   flex-wrap: wrap;
 }
+
+.dashboard-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

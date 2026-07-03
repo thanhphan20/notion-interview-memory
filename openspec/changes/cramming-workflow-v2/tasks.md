@@ -6,9 +6,9 @@
 - [x] 1.4 Add CRUD methods to `AppDatabase`: `setInterviewDate`, `getInterviewDate`, `clearInterviewDate`
 - [x] 1.5 Add CRUD methods: `createSprint`, `completeSprint`, `getSprint`, `listSprints(limit)`, `getSprintScoreAverage(n)`
 - [x] 1.6 Add CRUD methods: `createMCQDiagnostic`, `completeMCQDiagnostic`, `getMCQDiagnostic`, `listMCQDiagnostics`
-- [x] 1.7 Unit tests: settings roundtrip for Interview Date (covered via clamp integration tests in database.test.ts)
-- [ ] 1.8 Unit tests: sprint create + complete + score aggregation (DEFERRED — pure logic covered by sprint.test.ts; DB roundtrip test skipped)
-- [ ] 1.9 Unit tests: MCQ diagnostic create + complete + weakness report shape (DEFERRED — pure logic covered by mcq-diagnostic.test.ts)
+- [x] 1.7 Unit tests: settings roundtrip for Interview Date — `test/database-v2.test.ts`
+- [x] 1.8 Unit tests: sprint create + complete + score aggregation — `test/database-v2.test.ts`
+- [x] 1.9 Unit tests: MCQ diagnostic create + complete + weakness report shape — `test/database-v2.test.ts`
 
 ## 2. Scheduler Clamp
 
@@ -92,8 +92,8 @@
 - [x] 9.2 Render interleaved queue of 20 items (MCQs + open-recall) with progress bar
 - [x] 9.3 Handle rating submission per item; buffer client-side until session complete
 - [x] 9.4 On completion: POST to `/api/sprints/:id/complete`; render score + tag breakdown
-- [ ] 9.5 Abandoned-sprint recovery (DEFERRED — abandon returns to dashboard; unsent buffer is dropped, no partial credit)
-- [ ] 9.6 Add "New Sprint" button on DashboardView Countdown (SKIPPED — Sprint accessible via Sidebar for v2; can add CTA to dashboard later)
+- [ ] 9.5 Abandoned-sprint recovery (DEFERRED per design — abandon returns to dashboard; unsent buffer dropped, no partial credit)
+- [x] 9.6 "Start sprint" + "Run diagnostic" CTAs in DashboardView section-heading
 
 ## 10. MCQ Diagnostic Rewrite
 
@@ -119,7 +119,7 @@
 
 ## 13. Verification
 
-- [x] 13.1 `bun test` passes with all new tests green (67 pass across 10 files)
+- [x] 13.1 `bun test` passes with all new tests green (74 pass across 11 files)
 - [x] 13.2 `bun run lint` passes with no new warnings
 - [x] 13.3 `bun run build` succeeds; all new routes registered
 - [x] 13.4 Manual smoke test: `/api/dashboard`, `/api/sprints/start`, `/api/mcq-diagnostics/start` all respond correctly (including structured INSUFFICIENT_* errors)

@@ -6,16 +6,6 @@ import { USE_MOCK } from '@/lib/mock-data';
 
 export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'drafts' | 'notes' | 'history' | 'settings';
 
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 export function useAppState() {
   const api = getApiClient();
 
@@ -31,7 +21,6 @@ export function useAppState() {
   const [dueCards, setDueCards] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({ notion: {}, ai: { provider: 'offline' } });
-  const [mcqCards, setMcqCards] = useState<any[]>([]);
   const [mcqReviews, setMcqReviews] = useState<any[]>([]);
   const [status, setStatus] = useState<{ message: string; isError?: boolean } | null>(null);
   const [activeCard, setActiveCard] = useState<any>(null);
@@ -39,10 +28,6 @@ export function useAppState() {
   const [userAnswer, setUserAnswer] = useState('');
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [aiCritique, setAiCritique] = useState<any>(null);
-  const [practiceMode, setPracticeMode] = useState<'open' | 'mcq'>('open');
-  const [activeMCQIndex, setActiveMCQIndex] = useState(0);
-  const [mcqAnswered, setMcqAnswered] = useState<Record<number, number>>({});
-  const [mcqShuffled, setMcqShuffled] = useState<any[]>([]);
   const [cardFilterTag, setCardFilterTag] = useState<string | null>(null);
 
   const triggerStatus = useCallback((msg: string, isErr = false) => {
@@ -76,10 +61,6 @@ export function useAppState() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
-      if (data.mcqs) {
-        setMcqCards(data.mcqs);
-        setMcqShuffled((prev) => (prev.length === 0 ? shuffleArray(data.mcqs) : prev));
-      }
       if (data.mcqReviews) setMcqReviews(data.mcqReviews);
       if (data.dueCards.length > 0) {
         if (forceAdvance || !activeCard) {
@@ -107,10 +88,6 @@ export function useAppState() {
         setDrafts(state.drafts);
         setDueCards(state.dueCards);
         setReviews(state.reviews);
-        if (state.mcqs) {
-          setMcqCards(state.mcqs);
-          setMcqShuffled(shuffleArray(state.mcqs));
-        }
         if (state.mcqReviews) setMcqReviews(state.mcqReviews);
         if (state.dueCards.length > 0) {
           setActiveCard(state.dueCards[0]);
@@ -257,20 +234,6 @@ export function useAppState() {
     }
   }, [api, triggerStatus, activeCard, userAnswer, aiCritique, activeStartedAt, cardFilterTag, loadState]);
 
-  const handleMcqAnswer = useCallback(async (mcqId: number, optionIdx: number) => {
-    setMcqAnswered((prev) => ({ ...prev, [mcqId]: optionIdx }));
-    try {
-      await api.recordMCQAnswer(mcqId, optionIdx);
-      await loadState();
-    } catch (err: any) {
-      triggerStatus(err.message, true);
-    }
-  }, [api, triggerStatus, loadState]);
-
-  const handleMcqIndexChange = useCallback((idx: number) => {
-    setActiveMCQIndex(idx);
-  }, []);
-
   const handleCardFilterChange = useCallback((tag: string | null) => {
     setCardFilterTag(tag);
     setUserAnswer('');
@@ -309,7 +272,6 @@ export function useAppState() {
   const handleTagClick = useCallback((tag: string) => {
     setCardFilterTag(tag);
     setView('practice');
-    setPracticeMode('open');
   }, []);
 
   const handleStartSprint = useCallback(async () => {
@@ -376,7 +338,6 @@ export function useAppState() {
     setDiagnosticResult(null);
     setCardFilterTag(tags[0] ?? null);
     setView('practice');
-    setPracticeMode('open');
   }, []);
 
   const handleDrillLapses = useCallback(() => {
@@ -388,22 +349,15 @@ export function useAppState() {
       setActiveStartedAt(Date.now());
     }
     setView('practice');
-    setPracticeMode('open');
   }, [dashboard, dueCards]);
-
-  const handleShuffleMCQs = useCallback(() => {
-    setMcqShuffled(shuffleArray(mcqShuffled.length > 0 ? mcqShuffled : mcqCards));
-    setActiveMCQIndex(0);
-    setMcqAnswered({});
-  }, [mcqShuffled, mcqCards]);
 
   return {
     view, setView,
     stats, notes, drafts, dueCards, reviews, settings,
-    mcqCards, mcqReviews, status, activeCard, activeStartedAt,
+    mcqReviews, status, activeCard, activeStartedAt,
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
-    aiCritique, practiceMode, setPracticeMode,
-    activeMCQIndex, mcqAnswered, mcqShuffled, cardFilterTag,
+    aiCritique,
+    cardFilterTag,
     dashboard,
     sprintSession, sprintResult,
     diagnosticSession, diagnosticResult,
@@ -411,7 +365,7 @@ export function useAppState() {
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
-    handleMcqAnswer, handleMcqIndexChange, handleCardFilterChange, handleShuffleMCQs,
+    handleCardFilterChange,
     handleSetInterviewDate, handleTagClick, handleDrillLapses,
     handleStartSprint, handleCompleteSprint, handleExitSprint,
     handleStartDiagnostic, handleCompleteDiagnostic, handleExitDiagnostic, handleDrillTags,

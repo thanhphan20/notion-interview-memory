@@ -14,9 +14,18 @@ interface DashboardViewProps {
   onSetInterviewDate: (date: string | null) => void;
   onTagClick: (tag: string) => void;
   onDrillLapses: () => void;
+  onStartSprint: () => void;
+  onStartDiagnostic: () => void;
 }
 
-export default function DashboardView({ dashboard, onSetInterviewDate, onTagClick, onDrillLapses }: DashboardViewProps) {
+export default function DashboardView({
+  dashboard,
+  onSetInterviewDate,
+  onTagClick,
+  onDrillLapses,
+  onStartSprint,
+  onStartDiagnostic,
+}: DashboardViewProps) {
   if (!dashboard) {
     return (
       <section className="view view-enter">
@@ -33,6 +42,14 @@ export default function DashboardView({ dashboard, onSetInterviewDate, onTagClic
         <div>
           <h2>Dashboard</h2>
           <p className="muted">Where you stand, and what to drill next.</p>
+        </div>
+        <div className="dashboard-actions">
+          <button className="btn btn-secondary btn-sm" onClick={onStartDiagnostic}>
+            Run diagnostic
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={onStartSprint}>
+            Start sprint
+          </button>
         </div>
       </div>
 

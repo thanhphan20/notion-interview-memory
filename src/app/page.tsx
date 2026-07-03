@@ -42,6 +42,8 @@ export default function SPA() {
         onSetInterviewDate={handleSetInterviewDate}
         onTagClick={handleTagClick}
         onDrillLapses={handleDrillLapses}
+        onStartSprint={handleStartSprint}
+        onStartDiagnostic={handleStartDiagnostic}
       />
     ),
     practice: (
