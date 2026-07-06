@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getApiClient } from '@/lib/api-client';
 import { USE_MOCK } from '@/lib/mock-data';
 
-export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'drafts' | 'notes' | 'history' | 'settings';
+export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 export function useAppState() {
   const api = getApiClient();
@@ -21,7 +21,10 @@ export function useAppState() {
   const [dueCards, setDueCards] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({ notion: {}, ai: { provider: 'offline' } });
+  const [mcqs, setMcqs] = useState<any[]>([]);
   const [mcqReviews, setMcqReviews] = useState<any[]>([]);
+  const [mcqPracticeSession, setMcqPracticeSession] = useState<{ tag: string; mcqs: any[] } | null>(null);
+  const [mcqPracticeResult, setMcqPracticeResult] = useState<{ tag: string; correct: number; total: number } | null>(null);
   const [status, setStatus] = useState<{ message: string; isError?: boolean } | null>(null);
   const [activeCard, setActiveCard] = useState<any>(null);
   const [activeStartedAt, setActiveStartedAt] = useState<number | null>(null);
@@ -29,6 +32,8 @@ export function useAppState() {
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [aiCritique, setAiCritique] = useState<any>(null);
   const [cardFilterTag, setCardFilterTag] = useState<string | null>(null);
+  const [providerCheckResults, setProviderCheckResults] = useState<any[] | null>(null);
+  const [providerCheckPending, setProviderCheckPending] = useState(false);
 
   const triggerStatus = useCallback((msg: string, isErr = false) => {
     setStatus({ message: msg, isError: isErr });
@@ -52,6 +57,7 @@ export function useAppState() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
+      if (data.mcqs) setMcqs(data.mcqs);
       return data;
     }
     try {
@@ -61,6 +67,7 @@ export function useAppState() {
       setDrafts(data.drafts);
       setDueCards(data.dueCards);
       setReviews(data.reviews);
+      if (data.mcqs) setMcqs(data.mcqs);
       if (data.mcqReviews) setMcqReviews(data.mcqReviews);
       if (data.dueCards.length > 0) {
         if (forceAdvance || !activeCard) {
@@ -88,6 +95,7 @@ export function useAppState() {
         setDrafts(state.drafts);
         setDueCards(state.dueCards);
         setReviews(state.reviews);
+        if (state.mcqs) setMcqs(state.mcqs);
         if (state.mcqReviews) setMcqReviews(state.mcqReviews);
         if (state.dueCards.length > 0) {
           setActiveCard(state.dueCards[0]);
@@ -100,28 +108,53 @@ export function useAppState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSaveSettings = useCallback(async (e: React.FormEvent) => {
+  const handleSaveSettings = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const target = e.currentTarget as any;
+    const data = new FormData(e.currentTarget);
+
+    const readProviderConfig = (prefix: string) => ({
+      provider: String(data.get(`${prefix}.provider`) || 'offline'),
+      apiKey: String(data.get(`${prefix}.apiKey`) || '').trim(),
+      baseUrl: String(data.get(`${prefix}.baseUrl`) || '').trim(),
+      model: String(data.get(`${prefix}.model`) || '').trim(),
+    });
+
+    const fallbackIds = String(data.get('fallbackIds') || '').split(',').map((id) => id.trim()).filter(Boolean);
+    const maxInputTokensRaw = String(data.get('maxInputTokens') || '').trim();
+
     const body = {
       notion: {
-        token: target.token.value.trim(),
-        databaseId: target.databaseId.value.trim(),
-        titleProperty: target.titleProperty.value.trim() || 'Name',
-        topicProperty: target.topicProperty.value.trim() || 'Topic',
-        topics: target.topics.value.split(',').map((t: string) => t.trim()).filter(Boolean),
+        token: String(data.get('token') || '').trim(),
+        databaseId: String(data.get('databaseId') || '').trim(),
+        titleProperty: String(data.get('titleProperty') || '').trim() || 'Name',
+        topicProperty: String(data.get('topicProperty') || '').trim() || 'Topic',
+        topics: String(data.get('topics') || '').split(',').map((t) => t.trim()).filter(Boolean),
       },
       ai: {
-        provider: target.provider.value,
-        apiKey: target.apiKey.value.trim(),
-        baseUrl: target.baseUrl.value.trim(),
-        model: target.model.value.trim(),
+        ...readProviderConfig('ai'),
+        compressInput: data.get('compressInput') === 'on',
+        maxInputTokens: maxInputTokensRaw ? Number(maxInputTokensRaw) : undefined,
+        fallbacks: fallbackIds.map((id) => readProviderConfig(id)),
       },
     };
     try {
       await api.saveSettings(body);
-      triggerStatus('Settings saved.');
       await loadSettings();
+      setProviderCheckResults(null);
+      setProviderCheckPending(true);
+      try {
+        const results = await api.pingAiProviders(body.ai);
+        setProviderCheckResults(results);
+        const failed = results.filter((r: any) => !r.ok);
+        triggerStatus(
+          failed.length === 0
+            ? `Settings saved. All ${results.length} AI provider(s) responded.`
+            : `Settings saved, but ${failed.length}/${results.length} AI provider(s) failed — see details below.`,
+          failed.length > 0
+        );
+      } finally {
+        setProviderCheckPending(false);
+      }
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
@@ -304,12 +337,12 @@ export function useAppState() {
     setView('dashboard');
   }, []);
 
-  const handleStartDiagnostic = useCallback(async () => {
+  const handleStartDiagnostic = useCallback(async (tag?: string) => {
     setDiagnosticResult(null);
     setView('diagnostic');
     try {
-      const data = await api.startMCQDiagnostic();
-      setDiagnosticSession({ diagnosticId: data.diagnostic.id, mcqs: data.mcqs });
+      const data = await api.startMCQDiagnostic(tag);
+      setDiagnosticSession({ diagnosticId: data.diagnostic.id, mcqs: data.mcqs, tag: data.tag ?? null });
     } catch (e: any) {
       triggerStatus(e.message, true);
       setView('dashboard');
@@ -340,6 +373,42 @@ export function useAppState() {
     setView('practice');
   }, []);
 
+  const handleStartMcqPractice = useCallback((tag: string) => {
+    const pool = mcqs.filter((m: any) => m.tags?.includes(tag));
+    if (pool.length === 0) {
+      triggerStatus(`No MCQs tagged "${tag}" yet.`, true);
+      return;
+    }
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    setMcqPracticeResult(null);
+    setMcqPracticeSession({ tag, mcqs: shuffled });
+  }, [mcqs, triggerStatus]);
+
+  const handleCompleteMcqPractice = useCallback(async (payload: { answers: { mcqId: number; selectedIndex: number }[] }) => {
+    if (!mcqPracticeSession) return;
+    try {
+      const results = await Promise.all(
+        payload.answers.map((a) => api.recordMCQAnswer(a.mcqId, a.selectedIndex))
+      );
+      const correct = results.filter((r: any) => r.review?.correct).length;
+      setMcqPracticeResult({ tag: mcqPracticeSession.tag, correct, total: payload.answers.length });
+      await Promise.all([loadDashboard(), loadState(true)]);
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    }
+  }, [api, mcqPracticeSession, triggerStatus, loadDashboard, loadState]);
+
+  const handleChangeMcqPracticeTopic = useCallback(() => {
+    setMcqPracticeSession(null);
+    setMcqPracticeResult(null);
+  }, []);
+
+  const handleExitMcqPractice = useCallback(() => {
+    setMcqPracticeSession(null);
+    setMcqPracticeResult(null);
+    setView('dashboard');
+  }, []);
+
   const handleDrillLapses = useCallback(() => {
     if (!dashboard?.lapses?.length) return;
     const firstLapseCardId = dashboard.lapses[0].cardId;
@@ -354,13 +423,15 @@ export function useAppState() {
   return {
     view, setView,
     stats, notes, drafts, dueCards, reviews, settings,
-    mcqReviews, status, activeCard, activeStartedAt,
+    mcqs, mcqReviews, status, activeCard, activeStartedAt,
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
     aiCritique,
     cardFilterTag,
+    providerCheckResults, providerCheckPending,
     dashboard,
     sprintSession, sprintResult,
     diagnosticSession, diagnosticResult,
+    mcqPracticeSession, mcqPracticeResult,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
@@ -369,6 +440,7 @@ export function useAppState() {
     handleSetInterviewDate, handleTagClick, handleDrillLapses,
     handleStartSprint, handleCompleteSprint, handleExitSprint,
     handleStartDiagnostic, handleCompleteDiagnostic, handleExitDiagnostic, handleDrillTags,
+    handleStartMcqPractice, handleCompleteMcqPractice, handleChangeMcqPracticeTopic, handleExitMcqPractice,
     loadState, loadDashboard,
   };
 }

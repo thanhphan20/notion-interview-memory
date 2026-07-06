@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { IconX } from './ui/Icons';
 
 interface MCQ {
   id: number;
@@ -14,6 +15,7 @@ interface MCQ {
 interface DiagnosticSession {
   diagnosticId: number;
   mcqs: MCQ[];
+  tag?: string | null;
 }
 
 interface WeaknessReport {
@@ -29,7 +31,8 @@ interface DiagnosticResult {
 interface MCQPracticeViewProps {
   session: DiagnosticSession | null;
   result: DiagnosticResult | null;
-  onStart: () => void;
+  allMcqs: MCQ[];
+  onStart: (tag?: string) => void;
   onComplete: (payload: { answers: any[] }) => void;
   onDrillTags: (tags: string[]) => void;
   onExit: () => void;
@@ -38,6 +41,7 @@ interface MCQPracticeViewProps {
 export default function MCQPracticeView({
   session,
   result,
+  allMcqs = [],
   onStart,
   onComplete,
   onDrillTags,
@@ -45,6 +49,15 @@ export default function MCQPracticeView({
 }: MCQPracticeViewProps) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of allMcqs) {
+      for (const t of m.tags) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [allMcqs]);
 
   if (result) {
     const { score, weaknessReport } = result;
@@ -87,7 +100,7 @@ export default function MCQPracticeView({
                 Drill {weaknessReport.drillTargetTags.length} weak tag{weaknessReport.drillTargetTags.length === 1 ? '' : 's'} now
               </button>
             )}
-            <button className="btn btn-ghost" onClick={onStart}>Run another diagnostic</button>
+            <button className="btn btn-ghost" onClick={() => onStart()}>Run another diagnostic</button>
             <button className="btn btn-ghost" onClick={onExit}>Back</button>
           </div>
         </div>
@@ -106,7 +119,20 @@ export default function MCQPracticeView({
         </div>
         <div className="diagnostic-start">
           <p>Diagnostics don&apos;t train memory — they show you where to drill next. Takes ~8 minutes.</p>
-          <button className="btn btn-primary" onClick={onStart}>Start diagnostic</button>
+          <p className="muted">Optionally restrict to one topic — otherwise it draws from every tag.</p>
+          <div className="tags" style={{ marginBottom: '1rem' }}>
+            {availableTags.length > 0 && !selectedTag && availableTags.map((tag) => (
+              <button key={tag} className="tag-filter" onClick={() => setSelectedTag(tag)}>{tag}</button>
+            ))}
+            {selectedTag && (
+              <button className="tag-filter active" onClick={() => setSelectedTag(null)}>
+                {selectedTag} <IconX />
+              </button>
+            )}
+          </div>
+          <button className="btn btn-primary" onClick={() => onStart(selectedTag || undefined)}>
+            {selectedTag ? `Start diagnostic: ${selectedTag}` : 'Start diagnostic (all topics)'}
+          </button>
         </div>
       </section>
     );
@@ -137,7 +163,7 @@ export default function MCQPracticeView({
     <section className="view view-enter">
       <div className="section-heading">
         <div>
-          <h2>Diagnostic · {index + 1} / {session.mcqs.length}</h2>
+          <h2>Diagnostic{session.tag ? ` · ${session.tag}` : ''} · {index + 1} / {session.mcqs.length}</h2>
           <p className="muted">{answeredCount} answered · Pick the best option.</p>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={onExit}>Abandon</button>

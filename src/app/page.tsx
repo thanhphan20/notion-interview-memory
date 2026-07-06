@@ -6,6 +6,7 @@ import TopBar from '@/components/TopBar';
 import Toast from '@/components/ui/Toast';
 import OpenRecallView from '@/components/OpenRecallView';
 import MCQPracticeView from '@/components/MCQPracticeView';
+import McqTopicPracticeView from '@/components/McqTopicPracticeView';
 import SprintView from '@/components/SprintView';
 import DraftsView from '@/components/DraftsView';
 import NotesView from '@/components/NotesView';
@@ -17,13 +18,15 @@ import { useAppState, ViewType } from '@/hooks/useAppState';
 export default function SPA() {
   const {
     view, setView, stats, notes, drafts, dueCards, reviews, settings,
-    mcqReviews, status, activeCard,
+    mcqs, mcqReviews, status, activeCard,
     userAnswer, setUserAnswer, showAnswerKey, setShowAnswerKey,
     aiCritique,
     cardFilterTag,
+    providerCheckResults, providerCheckPending,
     dashboard,
     sprintSession, sprintResult,
     diagnosticSession, diagnosticResult,
+    mcqPracticeSession, mcqPracticeResult,
     handleSaveSettings, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
@@ -32,6 +35,7 @@ export default function SPA() {
     handleSetInterviewDate, handleTagClick, handleDrillLapses,
     handleStartSprint, handleCompleteSprint, handleExitSprint,
     handleStartDiagnostic, handleCompleteDiagnostic, handleExitDiagnostic, handleDrillTags,
+    handleStartMcqPractice, handleCompleteMcqPractice, handleChangeMcqPracticeTopic, handleExitMcqPractice,
     loadState,
   } = useAppState();
 
@@ -82,10 +86,22 @@ export default function SPA() {
       <MCQPracticeView
         session={diagnosticSession}
         result={diagnosticResult}
+        allMcqs={mcqs}
         onStart={handleStartDiagnostic}
         onComplete={handleCompleteDiagnostic}
         onDrillTags={handleDrillTags}
         onExit={handleExitDiagnostic}
+      />
+    ),
+    mcqPractice: (
+      <McqTopicPracticeView
+        allMcqs={mcqs}
+        session={mcqPracticeSession}
+        result={mcqPracticeResult}
+        onStart={handleStartMcqPractice}
+        onComplete={handleCompleteMcqPractice}
+        onChangeTopic={handleChangeMcqPracticeTopic}
+        onExit={handleExitMcqPractice}
       />
     ),
     drafts: (
@@ -105,7 +121,14 @@ export default function SPA() {
       />
     ),
     history: <HistoryView reviews={reviews} mcqReviews={mcqReviews} />,
-    settings: <SettingsView settings={settings} onSave={handleSaveSettings} />,
+    settings: (
+      <SettingsView
+        settings={settings}
+        onSave={handleSaveSettings}
+        providerCheckResults={providerCheckResults}
+        providerCheckPending={providerCheckPending}
+      />
+    ),
   };
 
   return (

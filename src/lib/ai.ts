@@ -1,3 +1,6 @@
+import { getProviderInfo, type AiModelOption } from './ai-models';
+import { encodeNoteInput, encodeCritiqueInput, type CompressOptions } from './compress';
+
 export interface MCQ {
   question: string;
   options: string[];
@@ -18,8 +21,6 @@ export interface AnswerCritique {
   missingKeyPoints: string[];
   suggestedRating: string;
 }
-
-import { GROQ_MODELS } from './ai-models';
 
 export interface NoteInput {
   title: string;
@@ -43,6 +44,12 @@ export interface AiConfig {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  /** Compress note/answer text before sending to the API to save input tokens. Defaults to on. */
+  compressInput?: boolean;
+  /** Approximate max input tokens to keep per field when compression is enabled. */
+  maxInputTokens?: number;
+  /** Additional provider configs tried in order if this provider's call fails. Not applied recursively. */
+  fallbacks?: AiConfig[];
 }
 
 function parseJsonObject(raw: string): any {
@@ -126,22 +133,151 @@ export function parseMCQs(raw: string | any): MCQ[] {
   });
 }
 
-export function createAiProvider(config: AiConfig = {}): AiProvider {
+const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai-compatible'];
+
+interface ResolvedProviderConfig {
+  provider: string;
+  apiKey?: string;
+  baseUrl: string;
+  model: string;
+}
+
+/** Resolves a provider id + its apiKey/baseUrl/model, applying env vars and per-provider defaults. */
+function resolveProviderConfig(config: AiConfig): ResolvedProviderConfig {
   const provider = config.provider || process.env.AI_PROVIDER || 'offline';
-  if (provider === 'offline') {
+  if (!KNOWN_PROVIDERS.includes(provider)) {
+    throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+  const info = getProviderInfo(provider);
+  const apiKey = config.apiKey || process.env.AI_API_KEY;
+  const baseUrl = (config.baseUrl || process.env.AI_BASE_URL || info?.defaultBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = config.model || process.env.AI_MODEL || info?.defaultModel || 'gpt-4.1-mini';
+  return { provider, apiKey, baseUrl, model };
+}
+
+export function createAiProvider(config: AiConfig = {}): AiProvider {
+  const fallbackConfigs = config.fallbacks || [];
+  if (fallbackConfigs.length === 0) {
+    return buildSingleProvider(config);
+  }
+  return createFallbackProvider([config, ...fallbackConfigs]);
+}
+
+function buildSingleProvider(config: AiConfig): AiProvider {
+  const resolved = resolveProviderConfig(config);
+  if (resolved.provider === 'offline') {
     return createOfflineProvider();
   }
-  if (provider === 'groq') {
-    return createOpenAiCompatibleProvider({
-      ...config,
-      baseUrl: config.baseUrl || 'https://api.groq.com/openai/v1',
-      model: config.model || GROQ_MODELS[0].id,
+  return createOpenAiCompatibleProvider({
+    ...config,
+    apiKey: resolved.apiKey,
+    baseUrl: resolved.baseUrl,
+    model: resolved.model,
+  });
+}
+
+/** Fetches the live model list from a provider's `GET {baseUrl}/models` endpoint. */
+export async function listProviderModels(config: AiConfig): Promise<AiModelOption[]> {
+  const resolved = resolveProviderConfig(config);
+  if (resolved.provider === 'offline') {
+    return [];
+  }
+  if (!resolved.apiKey) {
+    throw new Error('An API key is required to list models.');
+  }
+
+  const response = await fetch(`${resolved.baseUrl}/models`, {
+    headers: { authorization: `Bearer ${resolved.apiKey}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to list models: ${response.status} ${await response.text()}`);
+  }
+
+  const payload = await response.json() as { data?: Array<{ id?: string }> };
+  const ids = Array.isArray(payload.data)
+    ? payload.data.map((entry) => String(entry.id || '').trim()).filter(Boolean)
+    : [];
+  return ids.sort((a, b) => a.localeCompare(b)).map((id) => ({ id, label: id }));
+}
+
+export interface PingResult {
+  ok: boolean;
+  message: string;
+}
+
+/** Sends a minimal real request to confirm a provider config actually works end to end. */
+export async function pingProvider(config: AiConfig): Promise<PingResult> {
+  let resolved: ResolvedProviderConfig;
+  try {
+    resolved = resolveProviderConfig(config);
+  } catch (error) {
+    return { ok: false, message: (error as Error).message };
+  }
+
+  if (resolved.provider === 'offline') {
+    return { ok: true, message: 'Offline provider needs no network access.' };
+  }
+  if (!resolved.apiKey) {
+    return { ok: false, message: 'An API key is required.' };
+  }
+
+  try {
+    const response = await fetch(`${resolved.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${resolved.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: resolved.model,
+        messages: [
+          { role: 'system', content: 'Reply with exactly one word: pong' },
+          { role: 'user', content: 'ping' },
+        ],
+        max_tokens: 5,
+      }),
     });
+
+    if (!response.ok) {
+      return { ok: false, message: `${response.status} ${await response.text()}` };
+    }
+
+    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const reply = payload.choices?.[0]?.message?.content?.trim();
+    return { ok: true, message: reply ? `Model "${resolved.model}" responded: "${reply}"` : `Model "${resolved.model}" responded.` };
+  } catch (error) {
+    return { ok: false, message: (error as Error).message };
   }
-  if (provider === 'openai-compatible') {
-    return createOpenAiCompatibleProvider(config);
+}
+
+/**
+ * Wraps a chain of provider configs (primary + fallbacks) so each API call is
+ * retried against the next config in order when the current one fails — either
+ * to build (e.g. missing API key) or to call (network/HTTP/parse error). Each
+ * method call walks the chain independently, so a card-generation failure on
+ * the primary doesn't affect a later MCQ call that might succeed on it.
+ */
+function createFallbackProvider(configs: AiConfig[]): AiProvider {
+  async function tryInOrder<T>(call: (provider: AiProvider) => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (const cfg of configs) {
+      const label = cfg.provider || process.env.AI_PROVIDER || 'offline';
+      try {
+        const provider = buildSingleProvider(cfg);
+        return await call(provider);
+      } catch (error) {
+        lastError = error;
+        console.warn(`AI provider "${label}" failed, trying next fallback: ${(error as Error).message}`);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('All configured AI providers failed.');
   }
-  throw new Error(`Unsupported AI provider: ${provider}`);
+
+  return {
+    generateCards: (note) => tryInOrder((provider) => provider.generateCards(note)),
+    generateMCQs: (note) => tryInOrder((provider) => provider.generateMCQs(note)),
+    critiqueAnswer: (input) => tryInOrder((provider) => provider.critiqueAnswer(input)),
+  };
 }
 
 function createOfflineProvider(): AiProvider {
@@ -224,13 +360,18 @@ function firstUsefulSentence(content: string = ''): string | undefined {
 }
 
 function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
-  const apiKey = config.apiKey || process.env.AI_API_KEY;
-  const baseUrl = (config.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-  const model = config.model || process.env.AI_MODEL || 'gpt-4.1-mini';
+  const apiKey = config.apiKey;
+  const baseUrl = (config.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = config.model || 'gpt-4.1-mini';
 
   if (!apiKey) {
-    throw new Error('AI_API_KEY is required for openai-compatible provider.');
+    throw new Error('AI_API_KEY is required for this AI provider.');
   }
+
+  const compressOptions: CompressOptions = {
+    enabled: config.compressInput !== false,
+    ...(config.maxInputTokens ? { maxTokens: config.maxInputTokens } : {}),
+  };
 
   async function completeJson(messages: Array<{ role: string; content: string }>): Promise<string> {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -257,22 +398,22 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
   return {
     async generateCards(note: NoteInput): Promise<CardDraft[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Create interview-style open-recall study cards. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
-        { role: 'user', content: JSON.stringify(note) },
+        { role: 'system', content: 'Create interview-style open-recall study cards. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
+        { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseCardDrafts(content);
     },
     async critiqueAnswer(input: CritiqueInput): Promise<AnswerCritique> {
       const content = await completeJson([
-        { role: 'system', content: 'Critique an interview practice answer. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
-        { role: 'user', content: JSON.stringify(input) },
+        { role: 'system', content: 'Critique an interview practice answer. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
+        { role: 'user', content: encodeCritiqueInput(input, compressOptions) },
       ]);
       return parseAnswerCritique(content);
     },
     async generateMCQs(note: NoteInput): Promise<MCQ[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
-        { role: 'user', content: JSON.stringify(note) },
+        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
+        { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseMCQs(content);
     },
