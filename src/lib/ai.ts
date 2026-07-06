@@ -133,7 +133,7 @@ export function parseMCQs(raw: string | any): MCQ[] {
   });
 }
 
-const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai-compatible'];
+const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai', 'openai-compatible'];
 
 interface ResolvedProviderConfig {
   provider: string;

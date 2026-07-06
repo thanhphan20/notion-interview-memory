@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  IconPractice, IconDrafts, IconNotes, IconHistory, IconSettings, IconMC,
+  IconPractice, IconDrafts, IconNotes, IconHistory, IconSettings, IconMC, IconBrain,
 } from './ui/Icons';
 
 type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
@@ -27,7 +27,10 @@ export default function Sidebar({ view, onViewChange }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <h1>Interview Memory</h1>
+        <div className="brand-header">
+          <IconBrain />
+          <h1>Interview Memory</h1>
+        </div>
         <p className="muted">Notion-powered spaced interview practice</p>
       </div>
       <nav className="nav">

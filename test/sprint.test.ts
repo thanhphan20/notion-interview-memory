@@ -45,6 +45,7 @@ function makeTile(tag: string, status: HeatmapTile['status']): HeatmapTile {
     ratingAverageTrend: null,
     cardCount: 5,
     measuredCardCount: 3,
+    totalReviews: status === 'grey' ? 1 : 15,
     status,
     isColdTag: status === 'grey',
   };

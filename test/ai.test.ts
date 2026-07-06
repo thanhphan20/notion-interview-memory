@@ -108,8 +108,8 @@ test('generateMCQs from offline provider handles empty content gracefully', asyn
   expect(mcqs[0].options.length).toBeGreaterThanOrEqual(2);
 });
 
-test('AI_PROVIDERS registry includes openrouter and gemini with defaults', () => {
-  for (const id of ['groq', 'openrouter', 'gemini']) {
+test('AI_PROVIDERS registry includes openrouter, gemini, and openai with defaults', () => {
+  for (const id of ['groq', 'openrouter', 'gemini', 'openai']) {
     const info = getProviderInfo(id);
     expect(info).toBeDefined();
     expect(info!.defaultBaseUrl).toMatch(/^https:\/\//);
@@ -119,10 +119,19 @@ test('AI_PROVIDERS registry includes openrouter and gemini with defaults', () =>
   expect(AI_PROVIDERS.some((p) => p.id === 'offline')).toBe(true);
 });
 
-test('createAiProvider builds openrouter and gemini providers with a supplied key', () => {
+test('the dedicated openai provider is distinct from the generic openai-compatible entry', () => {
+  const openai = getProviderInfo('openai');
+  const openaiCompatible = getProviderInfo('openai-compatible');
+  expect(openai).toBeDefined();
+  expect(openaiCompatible).toBeDefined();
+  expect(openai!.label).not.toBe(openaiCompatible!.label);
+});
+
+test('createAiProvider builds openrouter, gemini, and openai providers with a supplied key', () => {
   // Should not throw when an API key is provided; provider defaults fill in base URL/model.
   expect(() => createAiProvider({ provider: 'openrouter', apiKey: 'test-key' })).not.toThrow();
   expect(() => createAiProvider({ provider: 'gemini', apiKey: 'test-key' })).not.toThrow();
+  expect(() => createAiProvider({ provider: 'openai', apiKey: 'test-key' })).not.toThrow();
 });
 
 test('createAiProvider rejects key-requiring providers without an API key', () => {
@@ -131,6 +140,7 @@ test('createAiProvider rejects key-requiring providers without an API key', () =
   try {
     expect(() => createAiProvider({ provider: 'openrouter' })).toThrow(/API_KEY/);
     expect(() => createAiProvider({ provider: 'gemini' })).toThrow(/API_KEY/);
+    expect(() => createAiProvider({ provider: 'openai' })).toThrow(/API_KEY/);
   } finally {
     if (prev !== undefined) process.env.AI_API_KEY = prev;
   }

@@ -6,6 +6,26 @@ import { USE_MOCK } from '@/lib/mock-data';
 
 export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
 
+function readProviderConfigFromForm(data: FormData, prefix: string) {
+  return {
+    provider: String(data.get(`${prefix}.provider`) || 'offline'),
+    apiKey: String(data.get(`${prefix}.apiKey`) || '').trim(),
+    baseUrl: String(data.get(`${prefix}.baseUrl`) || '').trim(),
+    model: String(data.get(`${prefix}.model`) || '').trim(),
+  };
+}
+
+function readAiConfigFromForm(data: FormData) {
+  const fallbackIds = String(data.get('fallbackIds') || '').split(',').map((id) => id.trim()).filter(Boolean);
+  const maxInputTokensRaw = String(data.get('maxInputTokens') || '').trim();
+  return {
+    ...readProviderConfigFromForm(data, 'ai'),
+    compressInput: data.get('compressInput') === 'on',
+    maxInputTokens: maxInputTokensRaw ? Number(maxInputTokensRaw) : undefined,
+    fallbacks: fallbackIds.map((id) => readProviderConfigFromForm(data, id)),
+  };
+}
+
 export function useAppState() {
   const api = getApiClient();
 
@@ -112,16 +132,6 @@ export function useAppState() {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
 
-    const readProviderConfig = (prefix: string) => ({
-      provider: String(data.get(`${prefix}.provider`) || 'offline'),
-      apiKey: String(data.get(`${prefix}.apiKey`) || '').trim(),
-      baseUrl: String(data.get(`${prefix}.baseUrl`) || '').trim(),
-      model: String(data.get(`${prefix}.model`) || '').trim(),
-    });
-
-    const fallbackIds = String(data.get('fallbackIds') || '').split(',').map((id) => id.trim()).filter(Boolean);
-    const maxInputTokensRaw = String(data.get('maxInputTokens') || '').trim();
-
     const body = {
       notion: {
         token: String(data.get('token') || '').trim(),
@@ -130,35 +140,37 @@ export function useAppState() {
         topicProperty: String(data.get('topicProperty') || '').trim() || 'Topic',
         topics: String(data.get('topics') || '').split(',').map((t) => t.trim()).filter(Boolean),
       },
-      ai: {
-        ...readProviderConfig('ai'),
-        compressInput: data.get('compressInput') === 'on',
-        maxInputTokens: maxInputTokensRaw ? Number(maxInputTokensRaw) : undefined,
-        fallbacks: fallbackIds.map((id) => readProviderConfig(id)),
-      },
+      ai: readAiConfigFromForm(data),
     };
     try {
       await api.saveSettings(body);
+      triggerStatus('Settings saved.');
       await loadSettings();
-      setProviderCheckResults(null);
-      setProviderCheckPending(true);
-      try {
-        const results = await api.pingAiProviders(body.ai);
-        setProviderCheckResults(results);
-        const failed = results.filter((r: any) => !r.ok);
-        triggerStatus(
-          failed.length === 0
-            ? `Settings saved. All ${results.length} AI provider(s) responded.`
-            : `Settings saved, but ${failed.length}/${results.length} AI provider(s) failed — see details below.`,
-          failed.length > 0
-        );
-      } finally {
-        setProviderCheckPending(false);
-      }
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
   }, [api, triggerStatus, loadSettings]);
+
+  const handlePingProviders = useCallback(async (form: HTMLFormElement) => {
+    const aiConfig = readAiConfigFromForm(new FormData(form));
+    setProviderCheckResults(null);
+    setProviderCheckPending(true);
+    try {
+      const results = await api.pingAiProviders(aiConfig);
+      setProviderCheckResults(results);
+      const failed = results.filter((r: any) => !r.ok);
+      triggerStatus(
+        failed.length === 0
+          ? `All ${results.length} AI provider(s) responded.`
+          : `${failed.length}/${results.length} AI provider(s) failed — see details below.`,
+        failed.length > 0
+      );
+    } catch (e: any) {
+      triggerStatus(e.message, true);
+    } finally {
+      setProviderCheckPending(false);
+    }
+  }, [api, triggerStatus]);
 
   const handleSyncNotion = useCallback(async () => {
     triggerStatus('Syncing Notion...');
@@ -432,7 +444,7 @@ export function useAppState() {
     sprintSession, sprintResult,
     diagnosticSession, diagnosticResult,
     mcqPracticeSession, mcqPracticeResult,
-    handleSaveSettings, handleSyncNotion,
+    handleSaveSettings, handlePingProviders, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,

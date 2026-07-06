@@ -114,3 +114,16 @@ export function IconShuffle({ className = '' }: { className?: string }) {
     </svg>
   );
 }
+
+export function IconBrain({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10Z" />
+      <path d="M8 12h8" />
+      <path d="M9 8v8" />
+      <path d="M15 8v8" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}

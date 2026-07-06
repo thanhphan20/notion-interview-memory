@@ -29,7 +29,8 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
   { id: 'groq', label: 'Groq (free)', defaultBaseUrl: GROQ_BASE_URL, defaultModel: 'llama-3.3-70b-versatile', requiresApiKey: true },
   { id: 'openrouter', label: 'OpenRouter (free tier)', defaultBaseUrl: OPENROUTER_BASE_URL, defaultModel: 'meta-llama/llama-3.3-70b-instruct:free', requiresApiKey: true },
   { id: 'gemini', label: 'Google Gemini (free tier)', defaultBaseUrl: GEMINI_BASE_URL, defaultModel: 'gemini-2.5-flash', requiresApiKey: true },
-  { id: 'openai-compatible', label: 'OpenAI-compatible', defaultBaseUrl: OPENAI_BASE_URL, defaultModel: 'gpt-4.1-mini', requiresApiKey: true },
+  { id: 'openai', label: 'OpenAI (ChatGPT)', defaultBaseUrl: OPENAI_BASE_URL, defaultModel: 'gpt-4o-mini', requiresApiKey: true },
+  { id: 'openai-compatible', label: 'OpenAI-compatible (custom endpoint)', defaultBaseUrl: OPENAI_BASE_URL, defaultModel: 'gpt-4.1-mini', requiresApiKey: true },
 ];
 
 export function getProviderInfo(id: string | undefined): AiProviderInfo | undefined {

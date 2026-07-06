@@ -31,6 +31,7 @@ interface Settings {
 interface SettingsViewProps {
   settings: Settings;
   onSave: (e: React.FormEvent<HTMLFormElement>) => void;
+  onPingProviders: (form: HTMLFormElement) => void;
   providerCheckResults?: AiPingResult[] | null;
   providerCheckPending?: boolean;
 }
@@ -176,7 +177,7 @@ function ProviderCheckList({ results, pending }: { results?: AiPingResult[] | nu
   );
 }
 
-export default function SettingsView({ settings, onSave, providerCheckResults, providerCheckPending }: SettingsViewProps) {
+export default function SettingsView({ settings, onSave, onPingProviders, providerCheckResults, providerCheckPending }: SettingsViewProps) {
   const [fallbackRows, setFallbackRows] = useState(() =>
     (settings.ai?.fallbacks || []).map((fb) => ({ id: nextFallbackId(), value: fb }))
   );
@@ -254,7 +255,17 @@ export default function SettingsView({ settings, onSave, providerCheckResults, p
         <input type="hidden" name="fallbackIds" value={fallbackRows.map((row) => row.id).join(',')} />
         <Button type="button" variant="secondary" onClick={addFallback}>+ Add fallback provider</Button>
 
-        <Button type="submit">Save Settings</Button>
+        <div className="actions">
+          <Button type="submit">Save Settings</Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={providerCheckPending}
+            onClick={(e) => onPingProviders(e.currentTarget.form!)}
+          >
+            {providerCheckPending ? 'Testing…' : 'Test AI providers'}
+          </Button>
+        </div>
 
         <ProviderCheckList results={providerCheckResults} pending={providerCheckPending} />
       </form>
