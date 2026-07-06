@@ -7,6 +7,7 @@ interface HeatmapTileProps {
     ratingAverageTrend: number | null;
     cardCount: number;
     measuredCardCount: number;
+    totalReviews: number;
     status: 'green' | 'yellow' | 'red' | 'grey';
     isColdTag: boolean;
   };
@@ -21,15 +22,21 @@ function trendLabel(trend: number | null): { glyph: string; className: string; a
 }
 
 export default function HeatmapTile({ tile, onClick }: HeatmapTileProps) {
-  const { tag, retentionRate, ratingAverageTrend, cardCount, measuredCardCount, status, isColdTag } = tile;
+  const { tag, retentionRate, ratingAverageTrend, cardCount, measuredCardCount, totalReviews, status, isColdTag } = tile;
   const pct = retentionRate === null ? null : Math.round(retentionRate * 100);
   const trend = trendLabel(ratingAverageTrend);
+  const hasStarted = totalReviews > 0;
+
+  const tooltip = isColdTag
+    ? `${tag}: not enough Practice history yet — ${totalReviews} review${totalReviews === 1 ? '' : 's'} logged so far. A card counts once you've reviewed it 3+ times in Practice. Click to practice this topic now.`
+    : `${tag}: ${pct}% retention — how often your last 3 reviews of a measured card came back "good" or "easy". Based on ${measuredCardCount} of ${cardCount} card${cardCount === 1 ? '' : 's'} with enough review history.${trend.a11y ? ` Trend: ${trend.a11y}.` : ''} Click to practice this topic now.`;
 
   return (
     <button
       className={`heatmap-tile heatmap-${status}`}
       onClick={() => onClick(tag)}
-      aria-label={`${tag}: ${isColdTag ? 'not measured' : `${pct}% retention`}, ${cardCount} card${cardCount === 1 ? '' : 's'}`}
+      title={tooltip}
+      aria-label={tooltip}
     >
       <div className="heatmap-tile-header">
         <span className="heatmap-tag" title={tag}>{tag}</span>
@@ -39,18 +46,25 @@ export default function HeatmapTile({ tile, onClick }: HeatmapTileProps) {
       <div className="heatmap-tile-body">
         {isColdTag ? (
           <div className="heatmap-cold">
-            <span className="heatmap-cold-label">New</span>
-            <span className="heatmap-cold-hint">Run a diagnostic to measure</span>
+            <span className="heatmap-cold-label">{hasStarted ? 'In progress' : 'New'}</span>
+            <span className="heatmap-cold-hint">
+              {hasStarted
+                ? `${totalReviews} review${totalReviews === 1 ? '' : 's'} logged — practice more to measure`
+                : 'Practice this topic to get started'}
+            </span>
           </div>
         ) : (
           <div className="heatmap-metric">
-            <span className="heatmap-pct">{pct}</span>
-            <span className="heatmap-pct-unit">%</span>
-            {trend.glyph && (
-              <span className={`heatmap-trend ${trend.className}`} aria-label={trend.a11y}>
-                {trend.glyph}
-              </span>
-            )}
+            <div className="heatmap-metric-value">
+              <span className="heatmap-pct">{pct}</span>
+              <span className="heatmap-pct-unit">%</span>
+              {trend.glyph && (
+                <span className={`heatmap-trend ${trend.className}`} aria-hidden="true">
+                  {trend.glyph}
+                </span>
+              )}
+            </div>
+            <span className="heatmap-metric-label">retention</span>
           </div>
         )}
       </div>

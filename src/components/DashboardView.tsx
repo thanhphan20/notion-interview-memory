@@ -60,14 +60,25 @@ export default function DashboardView({
           <h3>Heatmap</h3>
           <span className="muted">{heatmap.length} tag{heatmap.length === 1 ? '' : 's'}</span>
         </div>
+        <p className="muted heatmap-intro">
+          How well you remember each topic, based on your Practice reviews. Click a tile to drill that topic.
+        </p>
         {heatmap.length === 0 ? (
           <p className="muted">No cards yet. Sync notes and generate cards to see your heatmap.</p>
         ) : (
-          <div className="heatmap-grid">
-            {heatmap.map((tile) => (
-              <HeatmapTile key={tile.tag} tile={tile} onClick={onTagClick} />
-            ))}
-          </div>
+          <>
+            <ul className="heatmap-legend">
+              <li><span className="heatmap-status-dot heatmap-dot-green" aria-hidden="true" /> ≥80% — strong recall</li>
+              <li><span className="heatmap-status-dot heatmap-dot-yellow" aria-hidden="true" /> 50–79% — shaky</li>
+              <li><span className="heatmap-status-dot heatmap-dot-red" aria-hidden="true" /> &lt;50% — weak, needs drilling</li>
+              <li><span className="heatmap-status-dot heatmap-dot-grey" aria-hidden="true" /> New — not enough reviews yet</li>
+            </ul>
+            <div className="heatmap-grid">
+              {heatmap.map((tile) => (
+                <HeatmapTile key={tile.tag} tile={tile} onClick={onTagClick} />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

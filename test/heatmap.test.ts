@@ -48,7 +48,24 @@ describe('computeHeatmap', () => {
       expect(tile.isColdTag).toBe(true);
       expect(tile.retentionRate).toBeNull();
       expect(tile.ratingAverageTrend).toBeNull();
+      expect(tile.totalReviews).toBe(0);
     }
+  });
+
+  it('reports totalReviews for a cold tag with some review activity, distinguishing it from a never-touched tag', () => {
+    const untouched = makeCard(['Untouched']);
+    const inProgress = makeCard(['InProgress']);
+    const reviews = makeReviews(inProgress.id, ['good']);
+
+    const tiles = computeHeatmap([untouched, inProgress], reviews);
+    const untouchedTile = tiles.find((t) => t.tag === 'Untouched')!;
+    const inProgressTile = tiles.find((t) => t.tag === 'InProgress')!;
+
+    expect(untouchedTile.isColdTag).toBe(true);
+    expect(untouchedTile.totalReviews).toBe(0);
+
+    expect(inProgressTile.isColdTag).toBe(true);
+    expect(inProgressTile.totalReviews).toBe(1);
   });
 
   it('renders green when retention is 4/5 = 0.80', () => {

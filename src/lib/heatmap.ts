@@ -6,6 +6,7 @@ export interface HeatmapTile {
   ratingAverageTrend: number | null;
   cardCount: number;
   measuredCardCount: number;
+  totalReviews: number;
   status: 'green' | 'yellow' | 'red' | 'grey';
   isColdTag: boolean;
 }
@@ -99,6 +100,7 @@ export function computeHeatmap(cards: Card[], reviews: Review[]): HeatmapTile[] 
       ratingAverageTrend,
       cardCount,
       measuredCardCount,
+      totalReviews,
       status,
       isColdTag,
     });
