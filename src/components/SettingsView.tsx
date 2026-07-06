@@ -213,7 +213,7 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
         </label>
         <label>
           Topic property
-          <input name="topicProperty" defaultValue={settings.notion?.topicProperty || 'Topic'} />
+          <input name="topicProperty" defaultValue={settings.notion?.topicProperty || 'Technology'} />
         </label>
         <label>
           Topic filters

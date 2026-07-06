@@ -137,7 +137,7 @@ export function useAppState() {
         token: String(data.get('token') || '').trim(),
         databaseId: String(data.get('databaseId') || '').trim(),
         titleProperty: String(data.get('titleProperty') || '').trim() || 'Name',
-        topicProperty: String(data.get('topicProperty') || '').trim() || 'Topic',
+        topicProperty: String(data.get('topicProperty') || '').trim() || 'Technology',
         topics: String(data.get('topics') || '').split(',').map((t) => t.trim()).filter(Boolean),
       },
       ai: readAiConfigFromForm(data),

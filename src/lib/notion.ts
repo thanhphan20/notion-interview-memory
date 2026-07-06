@@ -110,7 +110,7 @@ export function extractPlainText(blocks: NotionBlock[]): string {
 
 export function mapNotionPageToNote(page: NotionPage, blocks: NotionBlock[], options: { titleProperty?: string; topicProperty?: string } = {}): NotionNote {
   const titleProperty = options.titleProperty || 'Name';
-  const topicProperty = options.topicProperty || 'Topic';
+  const topicProperty = options.topicProperty || 'Technology';
   const title = readTitle(page.properties?.[titleProperty]) || readAnyTitle(page.properties) || 'Untitled note';
   const tags = readTags(page.properties?.[topicProperty]);
 
@@ -156,7 +156,7 @@ export async function syncNotionDatabase(
   if (!token) throw new Error('NOTION_TOKEN is required.');
   if (!databaseId) throw new Error('NOTION_DATABASE_ID is required.');
 
-  const topicProperty = config.topicProperty || process.env.NOTION_TOPIC_PROPERTY || 'Topic';
+  const topicProperty = config.topicProperty || process.env.NOTION_TOPIC_PROPERTY || 'Technology';
   const topics = config.topics || parseCsv(process.env.NOTION_TOPIC_FILTERS || '');
   const filter = buildNotionDatabaseFilter(topicProperty, topics);
   const pages = await queryDatabase(fetchImpl, token, databaseId, filter);
