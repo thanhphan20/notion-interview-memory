@@ -38,7 +38,7 @@ test('sync route handles valid request', async () => {
       return new Response(JSON.stringify({ results: [], has_more: false }), { status: 200 });
     }
     return new Response('{}', { status: 200 });
-  });
+  }) as any;
 
   const mod = await import('../src/app/api/notion/sync/route');
   const req = new NextRequest('http://localhost/api/notion/sync', {
