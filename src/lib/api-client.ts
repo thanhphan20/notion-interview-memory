@@ -25,10 +25,24 @@ export interface DashboardPayload {
   dueQueue: any[];
 }
 
+export interface AiPingResult {
+  label: string;
+  provider: string;
+  ok: boolean;
+  message: string;
+}
+
+export interface AiModelOption {
+  id: string;
+  label: string;
+}
+
 export interface ApiClient {
   getState(now?: Date): Promise<AppState>;
   getSettings(): Promise<any>;
   saveSettings(body: any): Promise<void>;
+  listAiModels(config: { provider?: string; apiKey?: string; baseUrl?: string }): Promise<AiModelOption[]>;
+  pingAiProviders(ai: any): Promise<AiPingResult[]>;
   syncNotion(): Promise<{ imported: number }>;
   generateFromNote(noteId: number): Promise<{ drafts: any[]; mcqs: any[] }>;
   generateAllNotes(): Promise<{ drafts: any[]; mcqs: any[] }>;
@@ -47,7 +61,7 @@ export interface ApiClient {
   setInterviewDate(date: string | null): Promise<{ interviewDate: string | null; countdown: any }>;
   startSprint(): Promise<{ sprint: any; cards: any[]; mcqs: any[] }>;
   completeSprint(sprintId: number, body: { ratings: any[]; mcqAnswers: any[] }): Promise<{ sprint: any; score: number; tagBreakdown: any[] }>;
-  startMCQDiagnostic(): Promise<{ diagnostic: any; mcqs: any[] }>;
+  startMCQDiagnostic(tag?: string): Promise<{ diagnostic: any; mcqs: any[]; tag: string | null }>;
   completeMCQDiagnostic(diagnosticId: number, body: { answers: any[] }): Promise<{ diagnostic: any; score: number; weaknessReport: { entries: any[]; drillTargetTags: string[] } }>;
 }
 
@@ -72,6 +86,14 @@ function createRealClient(): ApiClient {
     },
     async saveSettings(body) {
       await fetcher('/api/settings', { method: 'POST', body: JSON.stringify(body) });
+    },
+    async listAiModels(config) {
+      const payload = await fetcher('/api/settings/models', { method: 'POST', body: JSON.stringify(config) });
+      return payload.models || [];
+    },
+    async pingAiProviders(ai) {
+      const payload = await fetcher('/api/settings/ping', { method: 'POST', body: JSON.stringify({ ai }) });
+      return payload.results || [];
     },
     async syncNotion() {
       return fetcher('/api/notion/sync', { method: 'POST', body: '{}' });
@@ -128,8 +150,8 @@ function createRealClient(): ApiClient {
         body: JSON.stringify(body),
       });
     },
-    async startMCQDiagnostic() {
-      return fetcher('/api/mcq-diagnostics/start', { method: 'POST', body: '{}' });
+    async startMCQDiagnostic(tag) {
+      return fetcher('/api/mcq-diagnostics/start', { method: 'POST', body: JSON.stringify(tag ? { tag } : {}) });
     },
     async completeMCQDiagnostic(diagnosticId, body) {
       return fetcher(`/api/mcq-diagnostics/${diagnosticId}/complete`, {
@@ -171,6 +193,19 @@ function createMockClient(): ApiClient {
     },
     async saveSettings() {
       await delay(100);
+    },
+    async listAiModels(config) {
+      await delay(300);
+      if (!config.provider || config.provider === 'offline') return [];
+      return [
+        { id: 'mock-model-large', label: 'mock-model-large' },
+        { id: 'mock-model-small', label: 'mock-model-small' },
+      ];
+    },
+    async pingAiProviders(ai) {
+      await delay(300);
+      const targets = [{ label: 'Primary', provider: ai?.provider || 'offline' }, ...((ai?.fallbacks || []).map((fb: any, i: number) => ({ label: `Fallback ${i + 1}`, provider: fb.provider || 'offline' })))];
+      return targets.map((t) => ({ ...t, ok: true, message: 'Mock mode — no real request sent.' }));
     },
     async syncNotion() {
       await delay(500);
@@ -277,7 +312,7 @@ function createMockClient(): ApiClient {
       await delay(200);
       throw new Error('Sprint not available in mock mode.');
     },
-    async startMCQDiagnostic() {
+    async startMCQDiagnostic(_tag) {
       await delay(200);
       throw new Error('MCQ diagnostic not available in mock mode — use USE_MOCK=false to try.');
     },

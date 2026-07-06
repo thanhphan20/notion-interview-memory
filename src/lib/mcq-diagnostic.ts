@@ -115,8 +115,17 @@ export function pickDiagnosticMCQs(
   heatmap: HeatmapTile[],
   size: number = DEFAULT_SIZE,
   rng: () => number = defaultRng,
+  tag?: string,
 ): number[] {
-  if (mcqs.length < size) {
+  if (tag) {
+    // Restricting to one tag: the pool is whatever's available for that tag —
+    // don't demand the full DEFAULT_SIZE across topics the user isn't asking for.
+    mcqs = mcqs.filter((m) => m.tags.includes(tag));
+    if (mcqs.length === 0) {
+      throw new Error(`INSUFFICIENT_MCQS: no MCQs tagged '${tag}'.`);
+    }
+    size = Math.min(size, mcqs.length);
+  } else if (mcqs.length < size) {
     throw new Error(`INSUFFICIENT_MCQS: need ${size} MCQs, have ${mcqs.length}`);
   }
 

@@ -143,6 +143,49 @@ describe('pickDiagnosticMCQs', () => {
     const b = pickDiagnosticMCQs(mcqs, [], heatmap, 15, seededRng(123));
     expect(a).toEqual(b);
   });
+
+  it('with a tag filter, restricts selection to MCQs carrying that tag', () => {
+    mcqIdSeq = 0;
+    const networkingMcqs = Array.from({ length: 20 }, () => makeMCQ(['Networking']));
+    const otherMcqs = Array.from({ length: 10 }, () => makeMCQ(['Other']));
+    const mcqs = [...networkingMcqs, ...otherMcqs];
+    const networkingIds = new Set(networkingMcqs.map((m) => m.id));
+    const heatmap: HeatmapTile[] = [makeTile('Networking', false), makeTile('Other', false)];
+
+    const result = pickDiagnosticMCQs(mcqs, [], heatmap, 15, seededRng(1), 'Networking');
+    expect(result).toHaveLength(15);
+    expect(result.every((id) => networkingIds.has(id))).toBe(true);
+  });
+
+  it('with a tag filter, shrinks the size to whatever is available for that tag instead of throwing', () => {
+    mcqIdSeq = 0;
+    const mcqs = [
+      ...Array.from({ length: 5 }, () => makeMCQ(['Rare'])),
+      ...Array.from({ length: 20 }, () => makeMCQ(['Common'])),
+    ];
+    const heatmap: HeatmapTile[] = [makeTile('Rare', false), makeTile('Common', false)];
+
+    const result = pickDiagnosticMCQs(mcqs, [], heatmap, 15, seededRng(1), 'Rare');
+    expect(result).toHaveLength(5);
+  });
+
+  it('with a tag filter that matches nothing, throws INSUFFICIENT_MCQS', () => {
+    mcqIdSeq = 0;
+    const mcqs = Array.from({ length: 20 }, () => makeMCQ(['Common']));
+    const heatmap: HeatmapTile[] = [makeTile('Common', false)];
+
+    expect(() => pickDiagnosticMCQs(mcqs, [], heatmap, 15, seededRng(1), 'Nonexistent')).toThrow(
+      /INSUFFICIENT_MCQS/,
+    );
+  });
+
+  it('without a tag filter, still requires the full default size across all topics', () => {
+    mcqIdSeq = 0;
+    const mcqs = Array.from({ length: 10 }, () => makeMCQ(['X']));
+    expect(() => pickDiagnosticMCQs(mcqs, [], [], 15, seededRng(1), undefined)).toThrow(
+      /INSUFFICIENT_MCQS/,
+    );
+  });
 });
 
 describe('computeWeaknessReport', () => {
