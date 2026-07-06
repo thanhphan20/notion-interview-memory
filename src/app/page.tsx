@@ -27,7 +27,7 @@ export default function SPA() {
     sprintSession, sprintResult,
     diagnosticSession, diagnosticResult,
     mcqPracticeSession, mcqPracticeResult,
-    handleSaveSettings, handleSyncNotion,
+    handleSaveSettings, handlePingProviders, handleSyncNotion,
     handleGenerateDrafts, handleGenerateAllDrafts, handleGenerateMoreMCQs,
     handleApproveDraft, handleRejectDraft,
     handleRequestCritique, handleSubmitReview,
@@ -125,6 +125,7 @@ export default function SPA() {
       <SettingsView
         settings={settings}
         onSave={handleSaveSettings}
+        onPingProviders={handlePingProviders}
         providerCheckResults={providerCheckResults}
         providerCheckPending={providerCheckPending}
       />
