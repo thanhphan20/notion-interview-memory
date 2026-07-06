@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { compressText, compressNoteInput, estimateTokens } from '../src/lib/compress';
+import { compressText, compressNoteInput, estimateTokens, encodeNoteInput, encodeCritiqueInput } from '../src/lib/compress';
 
 test('compressText collapses whitespace and blank-line runs', () => {
   const input = 'Hello   world\n\n\n\nSecond    line\t\there';
@@ -43,4 +43,27 @@ test('compressNoteInput compresses only the content field', () => {
   expect(compressed.title).toBe('CAP theorem');
   expect(compressed.tags).toEqual(['system-design']);
   expect(compressed.content).toBe('Consistency.\n\nAvailability.');
+});
+
+test('encodeNoteInput produces TOON, not JSON, and is smaller for the same content', () => {
+  const note = {
+    title: 'CAP theorem',
+    content: 'Consistency.\n\n\n\nAvailability.',
+    tags: ['system-design'],
+  };
+  const toon = encodeNoteInput(note);
+  expect(toon).not.toContain('{');
+  expect(toon).toContain('title: CAP theorem');
+  expect(toon).toContain('Consistency.');
+  expect(toon.length).toBeLessThan(JSON.stringify(note).length);
+});
+
+test('encodeCritiqueInput compresses the answer field and encodes as TOON', () => {
+  const toon = encodeCritiqueInput({
+    card: { rubric: ['mentions read speed'] },
+    answer: 'Indexes   speed\n\n\n\nreads.',
+  });
+  expect(toon).not.toContain('{');
+  expect(toon).toContain('Indexes speed');
+  expect(toon).toContain('reads.');
 });

@@ -1,3 +1,4 @@
+import { encode as toonEncode } from '@toon-format/toon';
 import type { NoteInput, CritiqueInput } from './ai';
 
 export interface CompressOptions {
@@ -105,4 +106,19 @@ export function compressCritiqueInput(input: CritiqueInput, options: CompressOpt
     ...input,
     answer: compressText(input.answer || '', options).text,
   };
+}
+
+/**
+ * Compress a note's free-form text, then encode the whole payload as TOON
+ * (https://github.com/toon-format/toon) instead of JSON. TOON drops the
+ * repeated quotes/braces/commas of JSON, which further cuts input tokens on
+ * top of the text-level compression above.
+ */
+export function encodeNoteInput(note: NoteInput, options: CompressOptions = {}): string {
+  return toonEncode(compressNoteInput(note, options));
+}
+
+/** Compress a critique request's free-form text, then encode it as TOON. */
+export function encodeCritiqueInput(input: CritiqueInput, options: CompressOptions = {}): string {
+  return toonEncode(compressCritiqueInput(input, options));
 }

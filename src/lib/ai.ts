@@ -1,5 +1,5 @@
 import { getProviderInfo, type AiModelOption } from './ai-models';
-import { compressNoteInput, compressCritiqueInput, type CompressOptions } from './compress';
+import { encodeNoteInput, encodeCritiqueInput, type CompressOptions } from './compress';
 
 export interface MCQ {
   question: string;
@@ -398,22 +398,22 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
   return {
     async generateCards(note: NoteInput): Promise<CardDraft[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Create interview-style open-recall study cards. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
-        { role: 'user', content: JSON.stringify(compressNoteInput(note, compressOptions)) },
+        { role: 'system', content: 'Create interview-style open-recall study cards. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
+        { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseCardDrafts(content);
     },
     async critiqueAnswer(input: CritiqueInput): Promise<AnswerCritique> {
       const content = await completeJson([
-        { role: 'system', content: 'Critique an interview practice answer. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
-        { role: 'user', content: JSON.stringify(compressCritiqueInput(input, compressOptions)) },
+        { role: 'system', content: 'Critique an interview practice answer. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
+        { role: 'user', content: encodeCritiqueInput(input, compressOptions) },
       ]);
       return parseAnswerCritique(content);
     },
     async generateMCQs(note: NoteInput): Promise<MCQ[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
-        { role: 'user', content: JSON.stringify(compressNoteInput(note, compressOptions)) },
+        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
+        { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseMCQs(content);
     },
