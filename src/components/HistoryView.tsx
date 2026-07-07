@@ -75,7 +75,7 @@ export default function HistoryView({ reviews, mcqReviews = [] }: HistoryViewPro
         </div>
       </div>
 
-      <HistorySummary reviews={reviews} />
+      <HistorySummary reviews={reviews} mcqReviews={mcqReviews} />
 
       <div className="tags" style={{ marginBottom: '0.75rem', minHeight: '1.5rem', alignItems: 'center' }}>
         <button className={`tag-filter ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>
