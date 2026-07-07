@@ -46,6 +46,10 @@ interface ProviderFieldsProps {
   prefix: string;
   value: AiProviderConfig;
   onRemove?: () => void;
+  /** Header label shown above the fields, e.g. "Fallback 2". Required when collapsible. */
+  label?: string;
+  /** Renders as a collapsible accordion row (used for fallback providers) instead of always-expanded fields. */
+  collapsible?: boolean;
 }
 
 type ModelFetchState =
@@ -54,16 +58,20 @@ type ModelFetchState =
   | { state: 'ok'; count: number }
   | { state: 'error'; message: string };
 
-function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
+function ProviderFields({ prefix, value, onRemove, label, collapsible }: ProviderFieldsProps) {
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
   const baseUrlInputRef = useRef<HTMLInputElement | null>(null);
-  const modelInputRef = useRef<HTMLInputElement | null>(null);
   const [provider, setProvider] = useState(value.provider || 'offline');
+  const [model, setModel] = useState(value.model || '');
   const providerInfo = getProviderInfo(provider);
   const isOffline = provider === 'offline';
   const [models, setModels] = useState<AiModelOption[]>([]);
   const [recommendations, setRecommendations] = useState<ModelRecommendation[]>([]);
   const [modelFetch, setModelFetch] = useState<ModelFetchState>({ state: 'idle' });
+  // Fields stay mounted (see .provider-fieldset-body.is-collapsed) so form values survive
+  // collapsing — only their visibility toggles. Rows with an already-configured provider
+  // start collapsed to keep a long fallback list from forcing a lot of scrolling.
+  const [expanded, setExpanded] = useState(() => !collapsible || !value.provider || value.provider === 'offline');
   const datalistId = `models-${prefix}`;
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -96,98 +104,114 @@ function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
     }
   };
 
-  const applyModel = (id: string) => {
-    if (modelInputRef.current) {
-      modelInputRef.current.value = id;
-    }
-  };
+  const applyModel = (id: string) => setModel(id);
 
   return (
     <div className="provider-fieldset">
-      {onRemove && (
-        <button type="button" className="provider-fieldset-remove" onClick={onRemove} aria-label="Remove fallback">
-          Remove
-        </button>
-      )}
-      <label>
-        Provider
-        <select name={fieldName(prefix, 'provider')} value={provider} onChange={handleProviderChange}>
-          {AI_PROVIDERS.map((option) => (
-            <option key={option.id} value={option.id}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        API key
-        <input ref={apiKeyInputRef} name={fieldName(prefix, 'apiKey')} type="password" defaultValue={value.apiKey || ''} />
-      </label>
-      <label>
-        Base URL
-        <input
-          ref={baseUrlInputRef}
-          name={fieldName(prefix, 'baseUrl')}
-          placeholder={providerInfo?.defaultBaseUrl || 'https://api.openai.com/v1'}
-          defaultValue={value.baseUrl || ''}
-        />
-      </label>
-      <label>
-        Model
-        <div className="model-field-row">
-          <input
-            ref={modelInputRef}
-            name={fieldName(prefix, 'model')}
-            list={isOffline ? undefined : datalistId}
-            placeholder={isOffline ? 'n/a' : (providerInfo?.defaultModel || 'e.g. llama-3.3-70b-versatile')}
-            defaultValue={value.model || ''}
-            disabled={isOffline}
-          />
-          {!isOffline && (
-            <Button type="button" variant="secondary" onClick={handleFetchModels} disabled={modelFetch.state === 'loading'}>
-              {modelFetch.state === 'loading' ? 'Fetching…' : 'Fetch models'}
-            </Button>
+      {collapsible && (
+        <div className="provider-fieldset-header">
+          <button
+            type="button"
+            className="provider-fieldset-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <span className="provider-fieldset-chevron" aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+            <span className="provider-fieldset-title">{label}</span>
+            {!expanded && (
+              <span className="provider-fieldset-meta muted">
+                {providerInfo?.label || 'Offline deterministic'}{model ? ` · ${model}` : ''}
+              </span>
+            )}
+          </button>
+          {onRemove && (
+            <button type="button" className="provider-fieldset-remove" onClick={onRemove} aria-label="Remove fallback">
+              Remove
+            </button>
           )}
         </div>
-        {!isOffline && (
-          <datalist id={datalistId}>
-            {models.map((option) => (
+      )}
+      <div className={`provider-fieldset-body${collapsible && !expanded ? ' is-collapsed' : ''}`}>
+        <label>
+          Provider
+          <select name={fieldName(prefix, 'provider')} value={provider} onChange={handleProviderChange}>
+            {AI_PROVIDERS.map((option) => (
               <option key={option.id} value={option.id}>{option.label}</option>
             ))}
-          </datalist>
-        )}
-        {modelFetch.state === 'ok' && (
-          <small className="muted">Found {modelFetch.count} model(s) — pick one from the list or keep typing.</small>
-        )}
-        {modelFetch.state === 'error' && (
-          <small className="field-error">{modelFetch.message}</small>
-        )}
-        {!isOffline && recommendations.length > 0 && (
-          <div className="model-recommend">
-            <h5 className="model-recommend-title">
-              ⭐ Recommended for you
-              <small className="muted"> — best free / cheap / good-enough picks</small>
-            </h5>
-            <ul className="model-recommend-list">
-              {recommendations.map((rec, index) => (
-                <li key={rec.id}>
-                  <button type="button" className="model-recommend-item" onClick={() => applyModel(rec.id)}>
-                    <span className="model-recommend-rank">#{index + 1}</span>
-                    <span className="model-recommend-body">
-                      <span className="model-recommend-id">{rec.label}</span>
-                      <span className="model-recommend-reason">{rec.reason}</span>
-                      <span className="model-recommend-badges">
-                        {rec.badges.map((badge) => (
-                          <span key={badge} className={`model-recommend-badge${badge === 'Free' ? ' is-free' : ''}`}>{badge}</span>
-                        ))}
-                      </span>
-                    </span>
-                    <span className="model-recommend-use">Use</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          </select>
+        </label>
+        <label>
+          API key
+          <input ref={apiKeyInputRef} name={fieldName(prefix, 'apiKey')} type="password" defaultValue={value.apiKey || ''} />
+        </label>
+        <label>
+          Base URL
+          <input
+            ref={baseUrlInputRef}
+            name={fieldName(prefix, 'baseUrl')}
+            placeholder={providerInfo?.defaultBaseUrl || 'https://api.openai.com/v1'}
+            defaultValue={value.baseUrl || ''}
+          />
+        </label>
+        <label>
+          Model
+          <div className="model-field-row">
+            <input
+              name={fieldName(prefix, 'model')}
+              list={isOffline ? undefined : datalistId}
+              placeholder={isOffline ? 'n/a' : (providerInfo?.defaultModel || 'e.g. llama-3.3-70b-versatile')}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={isOffline}
+            />
+            {!isOffline && (
+              <Button type="button" variant="secondary" onClick={handleFetchModels} disabled={modelFetch.state === 'loading'}>
+                {modelFetch.state === 'loading' ? 'Fetching…' : 'Fetch models'}
+              </Button>
+            )}
           </div>
-        )}
-      </label>
+          {!isOffline && (
+            <datalist id={datalistId}>
+              {models.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </datalist>
+          )}
+          {modelFetch.state === 'ok' && (
+            <small className="muted">Found {modelFetch.count} model(s) — pick one from the list or keep typing.</small>
+          )}
+          {modelFetch.state === 'error' && (
+            <small className="field-error">{modelFetch.message}</small>
+          )}
+          {!isOffline && recommendations.length > 0 && (
+            <div className="model-recommend">
+              <h5 className="model-recommend-title">
+                ⭐ Recommended for you
+                <small className="muted"> — best free / cheap / good-enough picks</small>
+              </h5>
+              <ul className="model-recommend-list">
+                {recommendations.map((rec, index) => (
+                  <li key={rec.id}>
+                    <button type="button" className="model-recommend-item" onClick={() => applyModel(rec.id)}>
+                      <span className="model-recommend-rank">#{index + 1}</span>
+                      <span className="model-recommend-body">
+                        <span className="model-recommend-id">{rec.label}</span>
+                        <span className="model-recommend-reason">{rec.reason}</span>
+                        <span className="model-recommend-badges">
+                          {rec.badges.map((badge) => (
+                            <span key={badge} className={`model-recommend-badge${badge === 'Free' ? ' is-free' : ''}`}>{badge}</span>
+                          ))}
+                        </span>
+                      </span>
+                      <span className="model-recommend-use">Use</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </label>
+      </div>
     </div>
   );
 }
@@ -290,8 +314,15 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
           Fallback providers
           <small className="muted"> — tried in order if the primary (or an earlier fallback) fails</small>
         </h3>
-        {fallbackRows.map((row) => (
-          <ProviderFields key={row.id} prefix={row.id} value={row.value} onRemove={() => removeFallback(row.id)} />
+        {fallbackRows.map((row, index) => (
+          <ProviderFields
+            key={row.id}
+            prefix={row.id}
+            value={row.value}
+            onRemove={() => removeFallback(row.id)}
+            collapsible
+            label={`Fallback ${index + 1}`}
+          />
         ))}
         <input type="hidden" name="fallbackIds" value={fallbackRows.map((row) => row.id).join(',')} />
         <Button type="button" variant="secondary" onClick={addFallback}>+ Add fallback provider</Button>
