@@ -50,6 +50,13 @@ interface ProviderFieldsProps {
   label?: string;
   /** Renders as a collapsible accordion row (used for fallback providers) instead of always-expanded fields. */
   collapsible?: boolean;
+  /** Extra class(es) on the outer card — used to show drag state (is-dragging / is-drag-over). */
+  className?: string;
+  /** Native HTML5 drag-and-drop wiring for reordering fallback rows. Passing onDragStart shows the drag handle. */
+  onDragStart?: React.DragEventHandler<HTMLSpanElement>;
+  onDragOver?: React.DragEventHandler<HTMLDivElement>;
+  onDrop?: React.DragEventHandler<HTMLDivElement>;
+  onDragEnd?: React.DragEventHandler<HTMLDivElement>;
 }
 
 type ModelFetchState =
@@ -58,7 +65,7 @@ type ModelFetchState =
   | { state: 'ok'; count: number }
   | { state: 'error'; message: string };
 
-function ProviderFields({ prefix, value, onRemove, label, collapsible }: ProviderFieldsProps) {
+function ProviderFields({ prefix, value, onRemove, label, collapsible, className, onDragStart, onDragOver, onDrop, onDragEnd }: ProviderFieldsProps) {
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
   const baseUrlInputRef = useRef<HTMLInputElement | null>(null);
   const [provider, setProvider] = useState(value.provider || 'offline');
@@ -107,9 +114,25 @@ function ProviderFields({ prefix, value, onRemove, label, collapsible }: Provide
   const applyModel = (id: string) => setModel(id);
 
   return (
-    <div className="provider-fieldset">
+    <div
+      className={`provider-fieldset${className ? ` ${className}` : ''}`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
       {collapsible && (
         <div className="provider-fieldset-header">
+          {onDragStart && (
+            <span
+              className="provider-fieldset-drag-handle"
+              draggable
+              onDragStart={onDragStart}
+              aria-label="Drag to reorder"
+              title="Drag to reorder"
+            >
+              ⠿
+            </span>
+          )}
           <button
             type="button"
             className="provider-fieldset-toggle"
@@ -246,6 +269,8 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
   const [fallbackRows, setFallbackRows] = useState(() =>
     (settings.ai?.fallbacks || []).map((fb) => ({ id: nextFallbackId(), value: fb }))
   );
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const addFallback = () => {
     setFallbackRows((rows) => [...rows, { id: nextFallbackId(), value: {} }]);
@@ -253,6 +278,42 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
 
   const removeFallback = (id: string) => {
     setFallbackRows((rows) => rows.filter((row) => row.id !== id));
+  };
+
+  const reorderFallback = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setFallbackRows((rows) => {
+      const from = rows.findIndex((row) => row.id === fromId);
+      const to = rows.findIndex((row) => row.id === toId);
+      if (from === -1 || to === -1) return rows;
+      const next = [...rows];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const handleDragStart = (id: string): React.DragEventHandler<HTMLSpanElement> => (e) => {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (id: string): React.DragEventHandler<HTMLDivElement> => (e) => {
+    e.preventDefault();
+    if (draggingId && draggingId !== id) setDragOverId(id);
+  };
+
+  const handleDrop = (id: string): React.DragEventHandler<HTMLDivElement> => (e) => {
+    e.preventDefault();
+    if (draggingId) reorderFallback(draggingId, id);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd: React.DragEventHandler<HTMLDivElement> = () => {
+    setDraggingId(null);
+    setDragOverId(null);
   };
 
   return (
@@ -322,6 +383,14 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
             onRemove={() => removeFallback(row.id)}
             collapsible
             label={`Fallback ${index + 1}`}
+            className={[
+              draggingId === row.id && 'is-dragging',
+              dragOverId === row.id && 'is-drag-over',
+            ].filter(Boolean).join(' ')}
+            onDragStart={handleDragStart(row.id)}
+            onDragOver={handleDragOver(row.id)}
+            onDrop={handleDrop(row.id)}
+            onDragEnd={handleDragEnd}
           />
         ))}
         <input type="hidden" name="fallbackIds" value={fallbackRows.map((row) => row.id).join(',')} />

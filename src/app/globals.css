@@ -650,6 +650,30 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--panel);
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.provider-fieldset.is-dragging {
+  opacity: 0.5;
+}
+
+.provider-fieldset.is-drag-over {
+  border-color: var(--primary);
+  background: var(--panel-highest);
+}
+
+.provider-fieldset-drag-handle {
+  flex: 0 0 auto;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  user-select: none;
+}
+
+.provider-fieldset-drag-handle:active {
+  cursor: grabbing;
 }
 
 .provider-fieldset-body {
