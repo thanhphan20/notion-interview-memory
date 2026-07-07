@@ -154,6 +154,35 @@ export function parseMCQs(raw: string | any): MCQ[] {
   });
 }
 
+// IPv4/IPv6 link-local ranges have no legitimate reason to host an OpenAI-compatible
+// API and are the standard SSRF target for stealing cloud instance credentials (every
+// major cloud's metadata service listens on 169.254.169.254 / fd00:ec2::254). We only
+// block those, not all private IPs, because a common real use of the "openai-compatible
+// custom endpoint" provider is a self-hosted LLM server (Ollama, LM Studio, etc.) on
+// localhost or the user's own LAN.
+function isLinkLocalHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (host === 'fd00:ec2::254' || host.startsWith('fe80:')) return true;
+  return false;
+}
+
+/** Rejects AI provider base URLs that aren't plain http(s) or that target a link-local/metadata address. */
+function assertSafeBaseUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Invalid AI provider base URL: ${rawUrl}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`AI provider base URL must use http or https, got "${parsed.protocol}".`);
+  }
+  if (isLinkLocalHostname(parsed.hostname)) {
+    throw new Error(`AI provider base URL may not target a link-local address: ${parsed.hostname}`);
+  }
+}
+
 /** Resolves a provider id + its apiKey/baseUrl/model, applying env vars and per-provider defaults. */
 function resolveProviderConfig(config: AiConfig): ResolvedProviderConfig {
   const provider = config.provider || process.env.AI_PROVIDER || 'offline';
@@ -164,6 +193,9 @@ function resolveProviderConfig(config: AiConfig): ResolvedProviderConfig {
   const apiKey = config.apiKey || process.env.AI_API_KEY;
   const baseUrl = (config.baseUrl || process.env.AI_BASE_URL || info?.defaultBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
   const model = config.model || process.env.AI_MODEL || info?.defaultModel || 'gpt-4.1-mini';
+  if (provider !== 'offline') {
+    assertSafeBaseUrl(baseUrl);
+  }
   return { provider, apiKey, baseUrl, model };
 }
 
