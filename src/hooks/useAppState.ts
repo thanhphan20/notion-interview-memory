@@ -208,10 +208,14 @@ export function useAppState() {
     }
   }, [api, triggerStatus, loadState]);
 
-  const handleGenerateMoreMCQs = useCallback(async () => {
-    triggerStatus('Generating more multiple choice questions...');
+  const handleGenerateMoreMCQs = useCallback(async (topics?: string[]) => {
+    triggerStatus(
+      topics?.length
+        ? `Generating more MCQs for ${topics.length} topic(s)...`
+        : 'Generating more multiple choice questions...'
+    );
     try {
-      const result = await api.generateMCQs();
+      const result = await api.generateMCQs(topics);
       triggerStatus(`Generated ${result.mcqs.length} new MCQs.`);
       await loadState();
     } catch (err: any) {

@@ -35,7 +35,8 @@ export interface CritiqueInput {
 
 export interface AiProvider {
   generateCards(note: NoteInput): Promise<CardDraft[]>;
-  generateMCQs(note: NoteInput): Promise<MCQ[]>;
+  /** existingQuestions: questions already generated for this note, so the provider can avoid duplicating them. */
+  generateMCQs(note: NoteInput, existingQuestions?: string[]): Promise<MCQ[]>;
   critiqueAnswer(input: CritiqueInput): Promise<AnswerCritique>;
 }
 
@@ -370,7 +371,7 @@ function createFallbackProvider(configs: AiConfig[], strategy: AiConfig['fallbac
 
   return {
     generateCards: (note) => tryInOrder((provider) => provider.generateCards(note)),
-    generateMCQs: (note) => tryInOrder((provider) => provider.generateMCQs(note)),
+    generateMCQs: (note, existingQuestions) => tryInOrder((provider) => provider.generateMCQs(note, existingQuestions)),
     critiqueAnswer: (input) => tryInOrder((provider) => provider.critiqueAnswer(input)),
   };
 }
@@ -403,8 +404,9 @@ function createOfflineProvider(): AiProvider {
         suggestedRating: missingKeyPoints.length > 1 ? 'hard' : 'good',
       };
     },
-    async generateMCQs(note: NoteInput): Promise<MCQ[]> {
+    async generateMCQs(note: NoteInput, existingQuestions: string[] = []): Promise<MCQ[]> {
       const tags = Array.isArray(note.tags) ? note.tags : [];
+      const seenQuestions = new Set(existingQuestions);
       const sentences = (note.content || '').split(/\n|(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 20);
       const fallback = note.title;
       const result: MCQ[] = [];
@@ -414,9 +416,11 @@ function createOfflineProvider(): AiProvider {
         const words = sentence.split(/\s+/).filter((w: string) => w.length > 3 && !used.has(w.toLowerCase()));
         if (words.length === 0) continue;
         const correctWord = words[Math.floor(words.length / 2)];
+        const question = `Which statement best describes ${sentence.length > 60 ? sentence.slice(0, 60) + '...' : sentence}?`;
+        if (seenQuestions.has(question)) continue;
         used.add(correctWord.toLowerCase());
         result.push({
-          question: `Which statement best describes ${sentence.length > 60 ? sentence.slice(0, 60) + '...' : sentence}?`,
+          question,
           options: [
             `The key concept is ${correctWord}.`,
             `The key concept is the opposite of ${correctWord}.`,
@@ -429,18 +433,21 @@ function createOfflineProvider(): AiProvider {
         });
       }
       if (result.length === 0) {
-        result.push({
-          question: `Which statement best describes ${note.title}?`,
-          options: [
-            'The described concept is accurate.',
-            'The described concept is the opposite.',
-            'This concept does not exist.',
-            'This concept only applies to databases.',
-          ],
-          correctIndex: 0,
-          explanation: fallback,
-          tags,
-        });
+        const fallbackQuestion = `Which statement best describes ${note.title}?`;
+        if (!seenQuestions.has(fallbackQuestion)) {
+          result.push({
+            question: fallbackQuestion,
+            options: [
+              'The described concept is accurate.',
+              'The described concept is the opposite.',
+              'This concept does not exist.',
+              'This concept only applies to databases.',
+            ],
+            correctIndex: 0,
+            explanation: fallback,
+            tags,
+          });
+        }
       }
       return result;
     },
@@ -505,9 +512,12 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
       ]);
       return parseAnswerCritique(content);
     },
-    async generateMCQs(note: NoteInput): Promise<MCQ[]> {
+    async generateMCQs(note: NoteInput, existingQuestions: string[] = []): Promise<MCQ[]> {
+      const dedupeInstruction = existingQuestions.length > 0
+        ? ` These questions already exist for this note — generate NEW ones that test different aspects, not duplicates or close paraphrases: ${existingQuestions.join(' | ')}`
+        : '';
       const content = await completeJson([
-        { role: 'system', content: 'Generate 5-8 multiple-choice questions from the note for interview practice. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.' },
+        { role: 'system', content: `Generate 5-8 multiple-choice questions from the note for interview practice. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.${dedupeInstruction}` },
         { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseMCQs(content);

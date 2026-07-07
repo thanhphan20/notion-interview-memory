@@ -52,7 +52,7 @@ export interface ApiClient {
   syncNotion(): Promise<{ imported: number }>;
   generateFromNote(noteId: number): Promise<{ drafts: any[]; mcqs: any[] }>;
   generateAllNotes(): Promise<{ drafts: any[]; mcqs: any[] }>;
-  generateMCQs(): Promise<{ mcqs: any[] }>;
+  generateMCQs(topics?: string[]): Promise<{ mcqs: any[] }>;
   approveDraft(id: number): Promise<any>;
   rejectDraft(id: number): Promise<void>;
   critiqueAnswer(cardId: number, answer: string): Promise<any>;
@@ -110,8 +110,8 @@ function createRealClient(): ApiClient {
     async generateAllNotes() {
       return fetcher('/api/notes/generate-all', { method: 'POST', body: '{}' });
     },
-    async generateMCQs() {
-      return fetcher('/api/mcqs/generate', { method: 'POST', body: '{}' });
+    async generateMCQs(topics) {
+      return fetcher('/api/mcqs/generate', { method: 'POST', body: JSON.stringify(topics?.length ? { topics } : {}) });
     },
     async approveDraft(id) {
       return fetcher(`/api/drafts/${id}/approve`, { method: 'POST', body: '{}' });
@@ -226,7 +226,7 @@ function createMockClient(): ApiClient {
       await delay(800);
       return { drafts: [], mcqs: [] };
     },
-    async generateMCQs() {
+    async generateMCQs(_topics) {
       await delay(600);
       const newMCQs = [
         { id: 101, noteId: 1, question: 'Which algorithm allows burst traffic?', options: ['Token Bucket', 'Leaky Bucket', 'Fixed Window', 'Sliding Log'], correctIndex: 0, explanation: 'Token Bucket allows bursts by accumulating tokens.', tags: ['System Design'], createdAt: new Date().toISOString() },

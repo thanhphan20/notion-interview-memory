@@ -210,6 +210,21 @@ export class AppDatabase {
     return (this.db.prepare('SELECT * FROM notes ORDER BY synced_at DESC, id DESC').all() as any[]).map(mapNote);
   }
 
+  /** Distinct topic tags across all synced notes, sorted alphabetically. */
+  listTopics(): string[] {
+    const set = new Set<string>();
+    for (const note of this.listNotes()) {
+      for (const tag of note.tags) set.add(tag);
+    }
+    return Array.from(set).sort();
+  }
+
+  /** Notes whose tags intersect any of the given topics (OR semantics). */
+  listNotesByTopics(topics: string[]): Note[] {
+    const wanted = new Set(topics);
+    return this.listNotes().filter((note) => note.tags.some((tag) => wanted.has(tag)));
+  }
+
   createDrafts(noteId: number, drafts: CardDraft[]): Draft[] {
     const now = new Date().toISOString();
     const insert = this.db.prepare(`
@@ -451,6 +466,31 @@ export class AppDatabase {
     return created;
   }
 
+  /** Inserts new MCQs for a note without touching any existing ones (used when generating "more" MCQs). */
+  appendMCQs(noteId: number, mcqs: MCQ[]): MCQQuestion[] {
+    const now = new Date().toISOString();
+    const insert = this.db.prepare(`
+      INSERT INTO mcq_questions (note_id, question, options_json, correct_index, explanation, tags_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const created: MCQQuestion[] = [];
+    this.withTransaction(() => {
+      for (const mcq of mcqs) {
+        const result = insert.run(
+          noteId,
+          mcq.question,
+          JSON.stringify(mcq.options),
+          mcq.correctIndex,
+          mcq.explanation,
+          JSON.stringify(mcq.tags || []),
+          now
+        ) as { lastInsertRowid: number };
+        created.push(this.getMCQ(Number(result.lastInsertRowid))!);
+      }
+    });
+    return created;
+  }
+
   getMCQ(id: number): MCQQuestion | undefined {
     const row = this.db.prepare('SELECT * FROM mcq_questions WHERE id = ?').get(id) as any;
     return row ? mapMCQ(row) : undefined;
@@ -458,6 +498,11 @@ export class AppDatabase {
 
   listMCQs(): MCQQuestion[] {
     return (this.db.prepare('SELECT * FROM mcq_questions ORDER BY created_at DESC, id DESC').all() as any[]).map(mapMCQ);
+  }
+
+  listMCQsForNote(noteId: number): MCQQuestion[] {
+    return (this.db.prepare('SELECT * FROM mcq_questions WHERE note_id = ? ORDER BY created_at DESC, id DESC')
+      .all(noteId) as any[]).map(mapMCQ);
   }
 
   createSprint(cardIds: number[], mcqIds: number[]): Sprint {

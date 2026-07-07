@@ -107,6 +107,7 @@ export default function SPA() {
     drafts: (
       <DraftsView
         drafts={drafts}
+        notes={notes}
         onApprove={handleApproveDraft}
         onReject={handleRejectDraft}
         onGenerateMCQs={handleGenerateMoreMCQs}

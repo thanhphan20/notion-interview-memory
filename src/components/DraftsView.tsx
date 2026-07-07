@@ -5,6 +5,7 @@ import Card from './ui/Card';
 import Tag from './ui/Tag';
 import Button from './ui/Button';
 import { IconMC, IconX } from './ui/Icons';
+import GenerateMCQsModal from './GenerateMCQsModal';
 
 interface Draft {
   id: number;
@@ -16,13 +17,15 @@ interface Draft {
 
 interface DraftsViewProps {
   drafts: Draft[];
+  notes: { tags: string[] }[];
   onApprove: (id: number) => void;
   onReject: (id: number) => void;
-  onGenerateMCQs: () => void;
+  onGenerateMCQs: (topics: string[]) => void;
 }
 
-export default function DraftsView({ drafts, onApprove, onReject, onGenerateMCQs }: DraftsViewProps) {
+export default function DraftsView({ drafts, notes, onApprove, onReject, onGenerateMCQs }: DraftsViewProps) {
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -44,10 +47,20 @@ export default function DraftsView({ drafts, onApprove, onReject, onGenerateMCQs
           <h2>Draft Approval</h2>
           <p className="muted">Generated questions only enter review after approval.</p>
         </div>
-        <Button variant="secondary" onClick={onGenerateMCQs}>
+        <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
           <IconMC /> Generate More MCQs
         </Button>
       </div>
+      {showGenerateModal && (
+        <GenerateMCQsModal
+          notes={notes}
+          onCancel={() => setShowGenerateModal(false)}
+          onConfirm={(topics) => {
+            setShowGenerateModal(false);
+            onGenerateMCQs(topics);
+          }}
+        />
+      )}
       <div className="tags" style={{ marginBottom: '1rem', minHeight: '1.5rem' }}>
         {allTags.length > 0 && !filterTag && allTags.map((tag) => (
           <button key={tag} className="tag-filter" onClick={() => setFilterTag(tag)}>{tag}</button>
