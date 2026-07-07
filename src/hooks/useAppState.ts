@@ -22,6 +22,7 @@ function readAiConfigFromForm(data: FormData) {
     ...readProviderConfigFromForm(data, 'ai'),
     compressInput: data.get('compressInput') === 'on',
     maxInputTokens: maxInputTokensRaw ? Number(maxInputTokensRaw) : undefined,
+    fallbackStrategy: data.get('roundRobinFallback') === 'on' ? 'round-robin' : 'failover',
     fallbacks: fallbackIds.map((id) => readProviderConfigFromForm(data, id)),
   };
 }

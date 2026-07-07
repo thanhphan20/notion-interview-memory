@@ -25,6 +25,7 @@ interface Settings {
   ai?: AiProviderConfig & {
     compressInput?: boolean;
     maxInputTokens?: number;
+    fallbackStrategy?: 'failover' | 'round-robin';
     fallbacks?: AiProviderConfig[];
   };
 }
@@ -375,6 +376,15 @@ export default function SettingsView({ settings, onSave, onPingProviders, provid
           Fallback providers
           <small className="muted"> — tried in order if the primary (or an earlier fallback) fails</small>
         </h3>
+        {fallbackRows.length > 0 && (
+          <label className="settings-checkbox">
+            <span>
+              Round robin fallback
+              <small className="muted"> — rotate the starting provider each call instead of always starting with the primary</small>
+            </span>
+            <input name="roundRobinFallback" type="checkbox" defaultChecked={settings.ai?.fallbackStrategy === 'round-robin'} />
+          </label>
+        )}
         {fallbackRows.map((row, index) => (
           <ProviderFields
             key={row.id}

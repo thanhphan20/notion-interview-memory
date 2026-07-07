@@ -48,6 +48,13 @@ export interface AiConfig {
   compressInput?: boolean;
   /** Approximate max input tokens to keep per field when compression is enabled. */
   maxInputTokens?: number;
+  /**
+   * How to order the primary + fallbacks chain on each call. 'failover' (default) always
+   * starts at the primary. 'round-robin' rotates the starting provider on every call to
+   * spread load (e.g. across free-tier rate limits), still falling through the rest of the
+   * chain if the chosen provider's call fails.
+   */
+  fallbackStrategy?: 'failover' | 'round-robin';
   /** Additional provider configs tried in order if this provider's call fails. Not applied recursively. */
   fallbacks?: AiConfig[];
 }
@@ -165,7 +172,14 @@ export function createAiProvider(config: AiConfig = {}): AiProvider {
   if (fallbackConfigs.length === 0) {
     return buildSingleProvider(config);
   }
-  return createFallbackProvider([config, ...fallbackConfigs]);
+  // Fallbacks have no UI of their own for compressInput/maxInputTokens, so they
+  // inherit the primary's settings unless a fallback config sets its own.
+  const inheritedFallbacks = fallbackConfigs.map((fallback) => ({
+    compressInput: config.compressInput,
+    maxInputTokens: config.maxInputTokens,
+    ...fallback,
+  }));
+  return createFallbackProvider([config, ...inheritedFallbacks], config.fallbackStrategy);
 }
 
 function buildSingleProvider(config: AiConfig): AiProvider {
@@ -279,17 +293,37 @@ export async function pingProvider(config: AiConfig): Promise<PingResult> {
   }
 }
 
+// Module-level so it persists across requests within one running server process
+// (each request builds a fresh AiProvider via createAiProvider, so per-instance
+// state wouldn't rotate anything). Resets on restart, which is fine for load
+// spreading — it doesn't need to survive that.
+let roundRobinCounter = 0;
+
+/** Rotates so each round-robin call starts at the next provider, wrapping the rest to the end. */
+function rotateForRoundRobin<T>(items: T[]): T[] {
+  if (items.length <= 1) return items;
+  const start = roundRobinCounter % items.length;
+  roundRobinCounter = (roundRobinCounter + 1) % items.length;
+  return [...items.slice(start), ...items.slice(0, start)];
+}
+
 /**
  * Wraps a chain of provider configs (primary + fallbacks) so each API call is
  * retried against the next config in order when the current one fails — either
  * to build (e.g. missing API key) or to call (network/HTTP/parse error). Each
  * method call walks the chain independently, so a card-generation failure on
  * the primary doesn't affect a later MCQ call that might succeed on it.
+ *
+ * With strategy 'round-robin', the chain's starting point rotates on every call
+ * (spreading load across providers, e.g. to avoid one free-tier rate limit)
+ * instead of always starting at the primary; it still falls through the rest
+ * of the chain on failure either way.
  */
-function createFallbackProvider(configs: AiConfig[]): AiProvider {
+function createFallbackProvider(configs: AiConfig[], strategy: AiConfig['fallbackStrategy'] = 'failover'): AiProvider {
   async function tryInOrder<T>(call: (provider: AiProvider) => Promise<T>): Promise<T> {
+    const order = strategy === 'round-robin' ? rotateForRoundRobin(configs) : configs;
     let lastError: unknown;
-    for (const cfg of configs) {
+    for (const cfg of order) {
       const label = cfg.provider || process.env.AI_PROVIDER || 'offline';
       try {
         const provider = buildSingleProvider(cfg);
@@ -399,7 +433,7 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
 
   const compressOptions: CompressOptions = {
     enabled: config.compressInput !== false,
-    ...(config.maxInputTokens ? { maxTokens: config.maxInputTokens } : {}),
+    ...(typeof config.maxInputTokens === 'number' ? { maxTokens: config.maxInputTokens } : {}),
   };
 
   async function completeJson(messages: Array<{ role: string; content: string }>): Promise<string> {

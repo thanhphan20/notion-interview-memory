@@ -591,7 +591,7 @@ body {
   font-size: 0.875rem;
 }
 
-.settings-grid input,
+.settings-grid input:not([type='checkbox']),
 .settings-grid select {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -603,7 +603,7 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.settings-grid input:focus,
+.settings-grid input:not([type='checkbox']):focus,
 .settings-grid select:focus {
   border-color: var(--primary);
   outline: none;
@@ -622,8 +622,11 @@ body {
 }
 
 .settings-grid label.settings-checkbox input[type='checkbox'] {
-  width: auto;
+  width: 1.1rem;
+  height: 1.1rem;
   flex: 0 0 auto;
+  accent-color: var(--primary);
+  cursor: pointer;
 }
 
 .settings-grid label.settings-checkbox small {
