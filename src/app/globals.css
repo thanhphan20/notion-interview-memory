@@ -688,6 +688,116 @@ body {
   color: var(--danger);
 }
 
+.model-recommend {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-high);
+}
+
+.model-recommend-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.model-recommend-title small {
+  font-weight: 400;
+}
+
+.model-recommend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.model-recommend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.model-recommend-item:hover {
+  border-color: var(--primary);
+  background: var(--panel-highest);
+}
+
+.model-recommend-rank {
+  flex: 0 0 auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 700;
+  padding-top: 0.1rem;
+}
+
+.model-recommend-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.model-recommend-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.model-recommend-reason {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.model-recommend-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.model-recommend-badge {
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  color: var(--text-variant);
+  background: var(--bg);
+}
+
+.model-recommend-badge.is-free {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+.model-recommend-use {
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.5rem;
+}
+
 .provider-check-list {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

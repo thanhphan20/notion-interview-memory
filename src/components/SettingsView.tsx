@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import Button from './ui/Button';
 import { AI_PROVIDERS, getProviderInfo } from '@/lib/ai-models';
+import { recommendModels, type ModelRecommendation } from '@/lib/model-recommend';
 import { getApiClient } from '@/lib/api-client';
 import type { AiModelOption, AiPingResult } from '@/lib/api-client';
 
@@ -56,10 +57,12 @@ type ModelFetchState =
 function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
   const baseUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const modelInputRef = useRef<HTMLInputElement | null>(null);
   const [provider, setProvider] = useState(value.provider || 'offline');
   const providerInfo = getProviderInfo(provider);
   const isOffline = provider === 'offline';
   const [models, setModels] = useState<AiModelOption[]>([]);
+  const [recommendations, setRecommendations] = useState<ModelRecommendation[]>([]);
   const [modelFetch, setModelFetch] = useState<ModelFetchState>({ state: 'idle' });
   const datalistId = `models-${prefix}`;
 
@@ -71,6 +74,7 @@ function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
       baseUrlInputRef.current.value = info.defaultBaseUrl;
     }
     setModels([]);
+    setRecommendations([]);
     setModelFetch({ state: 'idle' });
   };
 
@@ -83,9 +87,18 @@ function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
         baseUrl: baseUrlInputRef.current?.value.trim(),
       });
       setModels(fetched);
+      setRecommendations(recommendModels(provider, fetched));
       setModelFetch({ state: 'ok', count: fetched.length });
     } catch (err: any) {
+      setModels([]);
+      setRecommendations([]);
       setModelFetch({ state: 'error', message: err.message || 'Failed to fetch models.' });
+    }
+  };
+
+  const applyModel = (id: string) => {
+    if (modelInputRef.current) {
+      modelInputRef.current.value = id;
     }
   };
 
@@ -121,6 +134,7 @@ function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
         Model
         <div className="model-field-row">
           <input
+            ref={modelInputRef}
             name={fieldName(prefix, 'model')}
             list={isOffline ? undefined : datalistId}
             placeholder={isOffline ? 'n/a' : (providerInfo?.defaultModel || 'e.g. llama-3.3-70b-versatile')}
@@ -145,6 +159,33 @@ function ProviderFields({ prefix, value, onRemove }: ProviderFieldsProps) {
         )}
         {modelFetch.state === 'error' && (
           <small className="field-error">{modelFetch.message}</small>
+        )}
+        {!isOffline && recommendations.length > 0 && (
+          <div className="model-recommend">
+            <h5 className="model-recommend-title">
+              ⭐ Recommended for you
+              <small className="muted"> — best free / cheap / good-enough picks</small>
+            </h5>
+            <ul className="model-recommend-list">
+              {recommendations.map((rec, index) => (
+                <li key={rec.id}>
+                  <button type="button" className="model-recommend-item" onClick={() => applyModel(rec.id)}>
+                    <span className="model-recommend-rank">#{index + 1}</span>
+                    <span className="model-recommend-body">
+                      <span className="model-recommend-id">{rec.label}</span>
+                      <span className="model-recommend-reason">{rec.reason}</span>
+                      <span className="model-recommend-badges">
+                        {rec.badges.map((badge) => (
+                          <span key={badge} className={`model-recommend-badge${badge === 'Free' ? ' is-free' : ''}`}>{badge}</span>
+                        ))}
+                      </span>
+                    </span>
+                    <span className="model-recommend-use">Use</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </label>
     </div>

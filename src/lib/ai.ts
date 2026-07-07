@@ -52,6 +52,20 @@ export interface AiConfig {
   fallbacks?: AiConfig[];
 }
 
+interface ResolvedProviderConfig {
+  provider: string;
+  apiKey?: string;
+  baseUrl: string;
+  model: string;
+}
+
+export interface PingResult {
+  ok: boolean;
+  message: string;
+}
+
+const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai', 'openai-compatible'];
+
 function parseJsonObject(raw: string): any {
   try {
     return JSON.parse(raw);
@@ -133,15 +147,6 @@ export function parseMCQs(raw: string | any): MCQ[] {
   });
 }
 
-const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai', 'openai-compatible'];
-
-interface ResolvedProviderConfig {
-  provider: string;
-  apiKey?: string;
-  baseUrl: string;
-  model: string;
-}
-
 /** Resolves a provider id + its apiKey/baseUrl/model, applying env vars and per-provider defaults. */
 function resolveProviderConfig(config: AiConfig): ResolvedProviderConfig {
   const provider = config.provider || process.env.AI_PROVIDER || 'offline';
@@ -193,16 +198,40 @@ export async function listProviderModels(config: AiConfig): Promise<AiModelOptio
     throw new Error(`Failed to list models: ${response.status} ${await response.text()}`);
   }
 
-  const payload = await response.json() as { data?: Array<{ id?: string }> };
-  const ids = Array.isArray(payload.data)
-    ? payload.data.map((entry) => String(entry.id || '').trim()).filter(Boolean)
-    : [];
-  return ids.sort((a, b) => a.localeCompare(b)).map((id) => ({ id, label: id }));
+  const payload = await response.json() as { data?: Array<Record<string, any>> };
+  const entries = Array.isArray(payload.data) ? payload.data : [];
+  const models: AiModelOption[] = [];
+  for (const entry of entries) {
+    const id = String(entry.id || '').trim();
+    if (!id) continue;
+    // Some providers (notably OpenRouter) expose pricing + context metadata here;
+    // others return just the id. We keep whatever is present for recommendations.
+    const pricing = entry.pricing || {};
+    const priceIn = perMillionTokens(pricing.prompt);
+    const priceOut = perMillionTokens(pricing.completion);
+    const contextTokens = toPositiveInt(entry.context_length ?? entry.context_window);
+    models.push({
+      id,
+      label: id,
+      ...(priceIn !== undefined ? { priceIn } : {}),
+      ...(priceOut !== undefined ? { priceOut } : {}),
+      ...(contextTokens !== undefined ? { contextTokens } : {}),
+    });
+  }
+  return models.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export interface PingResult {
-  ok: boolean;
-  message: string;
+/** OpenRouter reports pricing as a USD-per-token string (e.g. "0.0000007"); convert to USD per 1M tokens. */
+function perMillionTokens(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const perToken = Number(value);
+  if (!Number.isFinite(perToken) || perToken < 0) return undefined;
+  return perToken * 1_000_000;
+}
+
+function toPositiveInt(value: unknown): number | undefined {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined;
 }
 
 /** Sends a minimal real request to confirm a provider config actually works end to end. */

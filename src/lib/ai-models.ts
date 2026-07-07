@@ -1,6 +1,12 @@
 export interface AiModelOption {
   id: string;
   label: string;
+  /** USD per 1M input tokens, when the provider reports pricing (e.g. OpenRouter). */
+  priceIn?: number;
+  /** USD per 1M output tokens, when the provider reports pricing. */
+  priceOut?: number;
+  /** Context window in tokens, when the provider reports it. */
+  contextTokens?: number;
 }
 
 export interface AiProviderInfo {

@@ -35,6 +35,12 @@ export interface AiPingResult {
 export interface AiModelOption {
   id: string;
   label: string;
+  /** USD per 1M input tokens, when the provider reports pricing (e.g. OpenRouter). */
+  priceIn?: number;
+  /** USD per 1M output tokens, when the provider reports pricing. */
+  priceOut?: number;
+  /** Context window in tokens, when the provider reports it. */
+  contextTokens?: number;
 }
 
 export interface ApiClient {
@@ -198,8 +204,9 @@ function createMockClient(): ApiClient {
       await delay(300);
       if (!config.provider || config.provider === 'offline') return [];
       return [
-        { id: 'mock-model-large', label: 'mock-model-large' },
-        { id: 'mock-model-small', label: 'mock-model-small' },
+        { id: 'mock-model-large', label: 'mock-model-large', priceIn: 3, priceOut: 15, contextTokens: 128000 },
+        { id: 'mock-llama-3.3-70b:free', label: 'mock-llama-3.3-70b:free', priceIn: 0, priceOut: 0, contextTokens: 131072 },
+        { id: 'mock-model-small', label: 'mock-model-small', priceIn: 0.2, priceOut: 0.6, contextTokens: 32000 },
       ];
     },
     async pingAiProviders(ai) {
