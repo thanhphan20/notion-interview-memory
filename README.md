@@ -3,7 +3,7 @@
 A private local web app that turns a Notion knowledge database into interview-style
 spaced review practice.
 
-<img src="public/screenshots/home.png" alt="Notion Interview Memory home page" width="100%" style="border-radius: 8px; margin: 1rem 0; border: 1px solid #ccc;">
+<img src="public/home.png" alt="Notion Interview Memory home page" width="100%" style="border-radius: 8px; margin: 1rem 0; border: 1px solid #ccc;">
 
 ## What It Does
 
