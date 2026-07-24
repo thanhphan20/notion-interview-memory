@@ -29,6 +29,62 @@ Optimized for a job seeker with a 3–6 week interview runway:
 4. **Weekly Sprint** — 20 items, same shape every time so you can benchmark yourself week-over-week. Score feeds the Countdown running average.
 5. **Night-before ritual** — the Lapses tile shows every card you rated `again` or `hard` in the last 7 days; one click drills them.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client["Browser (Next.js App Router client)"]
+        Views["View Components<br/>DashboardView / OpenRecallView /<br/>MCQPracticeView / SprintView / DraftsView /<br/>NotesView / HistoryView / SettingsView"]
+        Page["page.tsx<br/>(SPA shell + routing)"]
+        Hook["useAppState.ts<br/>(state + handlers)"]
+        ApiClient["api-client.ts<br/>(real vs. mock facade)"]
+        MockData["mock-data.ts<br/>(USE_MOCK offline fixtures)"]
+    end
+
+    subgraph Server["Next.js API Routes (src/app/api/*)"]
+        Routes["dashboard · state · notes · drafts ·\ncards · mcqs · sprints ·\nmcq-diagnostics · interview-date · settings"]
+    end
+
+    subgraph Lib["Domain Logic (src/lib)"]
+        Notion["notion.ts<br/>(Notion sync + block extraction)"]
+        Ai["ai.ts<br/>(AI provider interface)"]
+        Scheduler["scheduler.ts<br/>(FSRS + interview-date clamp)"]
+        Pure["heatmap.ts · lapses.ts ·\nmcq-diagnostic.ts · sprint.ts ·\ncountdown.ts (pure calculations)"]
+        DB["database.ts<br/>(SQLite CRUD)"]
+        Migrate["migrate.ts + migrations/<br/>(schema versions)"]
+    end
+
+    NotionAPI[("Notion API")]
+    AiAPI[("AI Provider<br/>offline / OpenAI-compatible endpoint")]
+    Sqlite[("bun:sqlite<br/>data/app.sqlite")]
+
+    Views --> Page --> Hook --> ApiClient
+    ApiClient -. "USE_MOCK=true" .-> MockData
+    ApiClient -- "USE_MOCK=false" --> Routes
+    Routes --> Notion
+    Routes --> Ai
+    Routes --> Scheduler
+    Routes --> Pure
+    Routes --> DB
+    Notion --> NotionAPI
+    Ai --> AiAPI
+    Scheduler --> DB
+    Pure --> DB
+    DB --> Sqlite
+    Migrate --> Sqlite
+```
+
+Requests flow from React view components through the `useAppState` hook and the
+`api-client` facade, which either serves local mock fixtures (`USE_MOCK = true`)
+or calls the Next.js API routes. Those routes delegate to the `lib/` layer:
+`notion.ts` syncs pages from the Notion API, `ai.ts` calls the configured AI
+provider (offline stub or an OpenAI-compatible endpoint) to draft cards/MCQs and
+critique answers, `scheduler.ts` runs the FSRS-style spacing logic (clamped to
+the Interview Date), and the pure `heatmap.ts` / `lapses.ts` / `sprint.ts` /
+`mcq-diagnostic.ts` / `countdown.ts` modules compute dashboard views over data
+read from `database.ts`, which persists everything to a local SQLite file at
+`data/app.sqlite` (schema managed by `migrate.ts` and the `migrations/` folder).
+
 ## Tech Stack
 
 | Layer | Technology |
