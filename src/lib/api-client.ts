@@ -1,13 +1,3 @@
-import {
-  USE_MOCK,
-  mockStats,
-  mockCards,
-  mockNotes,
-  mockDrafts,
-  mockReviews,
-  mockSettings,
-} from './mock-data';
-
 export interface AppState {
   stats: any;
   notes: any[];
@@ -43,34 +33,6 @@ export interface AiModelOption {
   contextTokens?: number;
 }
 
-export interface ApiClient {
-  getState(now?: Date): Promise<AppState>;
-  getSettings(): Promise<any>;
-  saveSettings(body: any): Promise<void>;
-  listAiModels(config: { provider?: string; apiKey?: string; baseUrl?: string }): Promise<AiModelOption[]>;
-  pingAiProviders(ai: any): Promise<AiPingResult[]>;
-  syncNotion(): Promise<{ imported: number }>;
-  generateFromNote(noteId: number): Promise<{ drafts: any[]; mcqs: any[] }>;
-  generateAllNotes(): Promise<{ drafts: any[]; mcqs: any[] }>;
-  generateMCQs(topics?: string[]): Promise<{ mcqs: any[] }>;
-  approveDraft(id: number): Promise<any>;
-  rejectDraft(id: number): Promise<void>;
-  critiqueAnswer(cardId: number, answer: string): Promise<any>;
-  submitReview(cardId: number, data: {
-    answer: string;
-    aiFeedback: any;
-    rating: string;
-    elapsedSeconds: number;
-  }): Promise<any>;
-  recordMCQAnswer(mcqId: number, selectedIndex: number): Promise<any>;
-  getDashboard(now?: Date): Promise<DashboardPayload>;
-  setInterviewDate(date: string | null): Promise<{ interviewDate: string | null; countdown: any }>;
-  startSprint(): Promise<{ sprint: any; cards: any[]; mcqs: any[] }>;
-  completeSprint(sprintId: number, body: { ratings: any[]; mcqAnswers: any[] }): Promise<{ sprint: any; score: number; tagBreakdown: any[] }>;
-  startMCQDiagnostic(tag?: string): Promise<{ diagnostic: any; mcqs: any[]; tag: string | null }>;
-  completeMCQDiagnostic(diagnosticId: number, body: { answers: any[] }): Promise<{ diagnostic: any; score: number; weaknessReport: { entries: any[]; drillTargetTags: string[] } }>;
-}
-
 async function fetcher(path: string, options?: RequestInit): Promise<any> {
   const res = await fetch(path, {
     headers: { 'content-type': 'application/json' },
@@ -81,260 +43,76 @@ async function fetcher(path: string, options?: RequestInit): Promise<any> {
   return payload;
 }
 
-function createRealClient(): ApiClient {
-  return {
-    async getState(now) {
-      const params = now ? `?now=${now.toISOString()}` : '';
-      return fetcher(`/api/state${params}`);
-    },
-    async getSettings() {
-      return fetcher('/api/settings');
-    },
-    async saveSettings(body) {
-      await fetcher('/api/settings', { method: 'POST', body: JSON.stringify(body) });
-    },
-    async listAiModels(config) {
-      const payload = await fetcher('/api/settings/models', { method: 'POST', body: JSON.stringify(config) });
-      return payload.models || [];
-    },
-    async pingAiProviders(ai) {
-      const payload = await fetcher('/api/settings/ping', { method: 'POST', body: JSON.stringify({ ai }) });
-      return payload.results || [];
-    },
-    async syncNotion() {
-      return fetcher('/api/notion/sync', { method: 'POST', body: '{}' });
-    },
-    async generateFromNote(noteId) {
-      return fetcher(`/api/notes/${noteId}/generate`, { method: 'POST', body: '{}' });
-    },
-    async generateAllNotes() {
-      return fetcher('/api/notes/generate-all', { method: 'POST', body: '{}' });
-    },
-    async generateMCQs(topics) {
-      return fetcher('/api/mcqs/generate', { method: 'POST', body: JSON.stringify(topics?.length ? { topics } : {}) });
-    },
-    async approveDraft(id) {
-      return fetcher(`/api/drafts/${id}/approve`, { method: 'POST', body: '{}' });
-    },
-    async rejectDraft(id) {
-      await fetcher(`/api/drafts/${id}/reject`, { method: 'POST', body: '{}' });
-    },
-    async critiqueAnswer(cardId, answer) {
-      return fetcher(`/api/cards/${cardId}/critique`, {
-        method: 'POST',
-        body: JSON.stringify({ answer }),
-      });
-    },
-    async submitReview(cardId, data) {
-      return fetcher(`/api/cards/${cardId}/review`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-    async recordMCQAnswer(mcqId, selectedIndex) {
-      return fetcher(`/api/mcqs/${mcqId}/review`, {
-        method: 'POST',
-        body: JSON.stringify({ selectedIndex }),
-      });
-    },
-    async getDashboard(now) {
-      const params = now ? `?now=${now.toISOString()}` : '';
-      return fetcher(`/api/dashboard${params}`);
-    },
-    async setInterviewDate(date) {
-      return fetcher('/api/interview-date', {
-        method: 'POST',
-        body: JSON.stringify({ date }),
-      });
-    },
-    async startSprint() {
-      return fetcher('/api/sprints/start', { method: 'POST', body: '{}' });
-    },
-    async completeSprint(sprintId, body) {
-      return fetcher(`/api/sprints/${sprintId}/complete`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-    },
-    async startMCQDiagnostic(tag) {
-      return fetcher('/api/mcq-diagnostics/start', { method: 'POST', body: JSON.stringify(tag ? { tag } : {}) });
-    },
-    async completeMCQDiagnostic(diagnosticId, body) {
-      return fetcher(`/api/mcq-diagnostics/${diagnosticId}/complete`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-    },
-  };
+function post(path: string, body: unknown = {}): Promise<any> {
+  return fetcher(path, { method: 'POST', body: JSON.stringify(body) });
 }
 
-function delay(ms: number = 300): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-let mockReviewId = 10;
-
-function createMockClient(): ApiClient {
-  let mockDueCards = [...mockCards];
-  let mockDraftList = [...mockDrafts];
-  let mockMCQList: any[] = [];
-  let mockMCQReviewList: any[] = [];
-
-  return {
-    async getState() {
-      await delay();
-      return {
-        stats: { ...mockStats, draftCount: mockDraftList.length, dueCount: mockDueCards.length },
-        notes: mockNotes,
-        drafts: mockDraftList,
-        dueCards: mockDueCards,
-        reviews: mockReviews,
-        mcqs: mockMCQList,
-        mcqReviews: mockMCQReviewList,
-      };
-    },
-    async getSettings() {
-      await delay();
-      return mockSettings;
-    },
-    async saveSettings() {
-      await delay(100);
-    },
-    async listAiModels(config) {
-      await delay(300);
-      if (!config.provider || config.provider === 'offline') return [];
-      return [
-        { id: 'mock-model-large', label: 'mock-model-large', priceIn: 3, priceOut: 15, contextTokens: 128000 },
-        { id: 'mock-llama-3.3-70b:free', label: 'mock-llama-3.3-70b:free', priceIn: 0, priceOut: 0, contextTokens: 131072 },
-        { id: 'mock-model-small', label: 'mock-model-small', priceIn: 0.2, priceOut: 0.6, contextTokens: 32000 },
-      ];
-    },
-    async pingAiProviders(ai) {
-      await delay(300);
-      const targets = [{ label: 'Primary', provider: ai?.provider || 'offline' }, ...((ai?.fallbacks || []).map((fb: any, i: number) => ({ label: `Fallback ${i + 1}`, provider: fb.provider || 'offline' })))];
-      return targets.map((t) => ({ ...t, ok: true, message: 'Mock mode — no real request sent.' }));
-    },
-    async syncNotion() {
-      await delay(500);
-      return { imported: 3 };
-    },
-    async generateFromNote() {
-      await delay(800);
-      return { drafts: [], mcqs: [] };
-    },
-    async generateAllNotes() {
-      await delay(800);
-      return { drafts: [], mcqs: [] };
-    },
-    async generateMCQs(_topics) {
-      await delay(600);
-      const newMCQs = [
-        { id: 101, noteId: 1, question: 'Which algorithm allows burst traffic?', options: ['Token Bucket', 'Leaky Bucket', 'Fixed Window', 'Sliding Log'], correctIndex: 0, explanation: 'Token Bucket allows bursts by accumulating tokens.', tags: ['System Design'], createdAt: new Date().toISOString() },
-        { id: 102, noteId: 1, question: 'What does CAP theorem guarantee?', options: ['Consistency, Availability, Partition Tolerance', 'Consistency, Accuracy, Performance', 'Concurrency, Availability, Persistence', 'Caching, Atomicity, Partitioning'], correctIndex: 0, explanation: 'CAP stands for Consistency, Availability, and Partition Tolerance.', tags: ['Distributed Systems'], createdAt: new Date().toISOString() },
-      ];
-      mockMCQList = [...newMCQs];
-      return { mcqs: newMCQs };
-    },
-    async approveDraft(id) {
-      await delay(100);
-      const draft = mockDraftList.find((d) => d.id === id);
-      if (!draft) throw new Error('Draft not found.');
-      mockDraftList = mockDraftList.filter((d) => d.id !== id);
-      const newCard = { ...draft, id: mockCards.length + mockDraftList.length + 1, expectedAnswer: draft.expectedAnswer };
-      mockDueCards = [...mockDueCards, newCard];
-      return newCard;
-    },
-    async rejectDraft(id) {
-      await delay(100);
-      mockDraftList = mockDraftList.filter((d) => d.id !== id);
-    },
-    async critiqueAnswer() {
-      await delay(600);
-      return {
-        critique: {
-          summary: 'Solid coverage of the main concepts. Consider elaborating on specific real-world examples.',
-          suggestedRating: 'good',
-          missingKeyPoints: ['Real-world architecture examples', 'Thread safety mechanisms'],
-        },
-      };
-    },
-    async submitReview(_cardId, data) {
-      await delay(200);
-      mockReviewId++;
-      const review = { id: mockReviewId, ...data, reviewedAt: new Date().toISOString() };
-      (mockReviews as any[]).unshift(review);
-      mockDueCards = mockDueCards.filter((c: any) => c.id !== _cardId);
-      return { review };
-    },
-    async recordMCQAnswer(mcqId, selectedIndex) {
-      await delay(100);
-      const mcq = mockMCQList.find((m: any) => m.id === mcqId);
-      const correct = mcq ? selectedIndex === mcq.correctIndex : false;
-      const review = {
-        id: mockReviewId++,
-        mcqId,
-        selectedIndex,
-        correct,
-        reviewedAt: new Date().toISOString(),
-      };
-      mockMCQReviewList = [...mockMCQReviewList, review];
-      return { review };
-    },
-    async getDashboard() {
-      await delay(150);
-      return {
-        countdown: {
-          interviewDate: '2026-08-15',
-          daysUntil: 43,
-          sprintScoreAverage: null,
-          sprintCount: 0,
-          heatmapGreenPercent: 0.4,
-          status: 'active',
-        },
-        heatmap: [
-          { tag: 'System Design', retentionRate: 0.82, ratingAverageTrend: 0.12, cardCount: 8, measuredCardCount: 6, status: 'green', isColdTag: false },
-          { tag: 'Databases', retentionRate: 0.55, ratingAverageTrend: -0.05, cardCount: 6, measuredCardCount: 5, status: 'yellow', isColdTag: false },
-          { tag: 'Distributed Systems', retentionRate: 0.4, ratingAverageTrend: null, cardCount: 5, measuredCardCount: 3, status: 'red', isColdTag: false },
-          { tag: 'Networking', retentionRate: null, ratingAverageTrend: null, cardCount: 4, measuredCardCount: 0, status: 'grey', isColdTag: true },
-        ],
-        lapses: [
-          { cardId: 12, question: 'Explain load balancing tradeoffs.', lastRating: 'again', reviewedAt: new Date(Date.now() - 86400000).toISOString(), tags: ['System Design'] },
-          { cardId: 33, question: 'What is write-through caching?', lastRating: 'hard', reviewedAt: new Date(Date.now() - 172800000).toISOString(), tags: ['Databases'] },
-        ],
-        dueQueue: mockDueCards,
-      };
-    },
-    async setInterviewDate(date) {
-      await delay(80);
-      return {
-        interviewDate: date,
-        countdown: { interviewDate: date, daysUntil: date ? 30 : null, sprintScoreAverage: null, sprintCount: 0, heatmapGreenPercent: 0.4, status: date ? 'active' : 'unset' },
-      };
-    },
-    async startSprint() {
-      await delay(200);
-      throw new Error('Sprint not available in mock mode — use USE_MOCK=false to try sprints.');
-    },
-    async completeSprint(_id, _body) {
-      await delay(200);
-      throw new Error('Sprint not available in mock mode.');
-    },
-    async startMCQDiagnostic(_tag) {
-      await delay(200);
-      throw new Error('MCQ diagnostic not available in mock mode — use USE_MOCK=false to try.');
-    },
-    async completeMCQDiagnostic(_id, _body) {
-      await delay(200);
-      throw new Error('MCQ diagnostic not available in mock mode.');
-    },
-  };
-}
-
-let cachedClient: ApiClient | null = null;
-
-export function getApiClient(): ApiClient {
-  if (!cachedClient) {
-    cachedClient = USE_MOCK ? createMockClient() : createRealClient();
-  }
-  return cachedClient;
-}
+export const api = {
+  getState(now?: Date): Promise<AppState> {
+    return fetcher(`/api/state${now ? `?now=${now.toISOString()}` : ''}`);
+  },
+  getSettings(): Promise<any> {
+    return fetcher('/api/settings');
+  },
+  async saveSettings(body: any): Promise<void> {
+    await post('/api/settings', body);
+  },
+  async listAiModels(config: { provider?: string; apiKey?: string; baseUrl?: string }): Promise<AiModelOption[]> {
+    const payload = await post('/api/settings/models', config);
+    return payload.models || [];
+  },
+  async pingAiProviders(ai: any): Promise<AiPingResult[]> {
+    const payload = await post('/api/settings/ping', { ai });
+    return payload.results || [];
+  },
+  syncNotion(): Promise<{ imported: number }> {
+    return post('/api/notion/sync');
+  },
+  generateFromNote(noteId: number): Promise<{ drafts: any[]; mcqs: any[] }> {
+    return post(`/api/notes/${noteId}/generate`);
+  },
+  generateAllNotes(): Promise<{ drafts: any[]; mcqs: any[] }> {
+    return post('/api/notes/generate-all');
+  },
+  generateMCQs(topics?: string[]): Promise<{ mcqs: any[] }> {
+    return post('/api/mcqs/generate', topics?.length ? { topics } : {});
+  },
+  approveDraft(id: number): Promise<any> {
+    return post(`/api/drafts/${id}/approve`);
+  },
+  async rejectDraft(id: number): Promise<void> {
+    await post(`/api/drafts/${id}/reject`);
+  },
+  critiqueAnswer(cardId: number, answer: string): Promise<any> {
+    return post(`/api/cards/${cardId}/critique`, { answer });
+  },
+  submitReview(cardId: number, data: {
+    answer: string;
+    aiFeedback: any;
+    rating: string;
+    elapsedSeconds: number;
+  }): Promise<any> {
+    return post(`/api/cards/${cardId}/review`, data);
+  },
+  recordMCQAnswer(mcqId: number, selectedIndex: number): Promise<any> {
+    return post(`/api/mcqs/${mcqId}/review`, { selectedIndex });
+  },
+  getDashboard(now?: Date): Promise<DashboardPayload> {
+    return fetcher(`/api/dashboard${now ? `?now=${now.toISOString()}` : ''}`);
+  },
+  setInterviewDate(date: string | null): Promise<{ interviewDate: string | null; countdown: any }> {
+    return post('/api/interview-date', { date });
+  },
+  startSprint(): Promise<{ sprint: any; cards: any[]; mcqs: any[] }> {
+    return post('/api/sprints/start');
+  },
+  completeSprint(sprintId: number, body: { ratings: any[]; mcqAnswers: any[] }): Promise<{ sprint: any; score: number; tagBreakdown: any[] }> {
+    return post(`/api/sprints/${sprintId}/complete`, body);
+  },
+  startMCQDiagnostic(tag?: string): Promise<{ diagnostic: any; mcqs: any[]; tag: string | null }> {
+    return post('/api/mcq-diagnostics/start', tag ? { tag } : {});
+  },
+  completeMCQDiagnostic(diagnosticId: number, body: { answers: any[] }): Promise<{ diagnostic: any; score: number; weaknessReport: { entries: any[]; drillTargetTags: string[] } }> {
+    return post(`/api/mcq-diagnostics/${diagnosticId}/complete`, body);
+  },
+};

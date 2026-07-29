@@ -1,15 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAppDatabase } from '@/lib/database';
+import { withDb } from '@/lib/with-db';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const db = createAppDatabase();
-  try {
-    const draft = db.rejectDraft(Number(id));
-    return NextResponse.json({ draft });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  } finally {
-    db.close();
-  }
-}
+type Ctx = { params: Promise<{ id: string }> };
+
+export const POST = withDb(async (db, _request: Request, { params }: Ctx) => ({
+  draft: db.rejectDraft(Number((await params).id)),
+}));

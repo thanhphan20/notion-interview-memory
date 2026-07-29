@@ -23,9 +23,9 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 | Path | Responsibility |
 | --- | --- |
 | `src/app/page.tsx` | SPA container — thin wiring layer, component map for view routing. |
-| `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards, dashboard, interview-date, lapses, sprints, mcq-diagnostics). |
+| `src/app/api/` | Next.js API route handlers (state, settings, notion, notes, drafts, cards, dashboard, interview-date, sprints, mcq-diagnostics). |
 | `src/app/globals.css` | Design tokens, typography, layout, component styles. |
-| `src/components/ui/` | Reusable primitives: Button, Card, Tag, Toast, MetricCard. |
+| `src/components/ui/` | Reusable primitives: Button, Card, Toast, MetricCard, Icons. |
 | `src/components/Sidebar.tsx` | Navigation sidebar: Dashboard, Practice, Diagnostic, Sprint, Drafts, Notes, History, Settings. |
 | `src/components/TopBar.tsx` | Stats bar (Due, Drafts, Reviews) + Refresh. |
 | `src/components/DashboardView.tsx` | Home dashboard — Countdown + Heatmap grid + Lapses + Due Queue. |
@@ -50,8 +50,8 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 | `src/lib/countdown.ts` | Pure `computeCountdown(db, now)` — assembles the dashboard countdown payload. |
 | `src/lib/sprint.ts` | Pure `pickSprintItems` + `computeSprintScore` — 20-item selection with 70/30 red-yellow weighting, score + tag breakdown. |
 | `src/lib/mcq-diagnostic.ts` | Pure `pickDiagnosticMCQs` + `computeWeaknessReport` — 15-MCQ cold-weighted selection, weakness ranking + drill-tag targets. |
-| `src/lib/api-client.ts` | API facade — typed client with real and mock implementations, `USE_MOCK` branching isolated here. |
-| `src/lib/mock-data.ts` | Mock data for offline UI preview (`USE_MOCK` flag). |
+| `src/lib/api-client.ts` | Typed fetch wrappers for the API routes (`api.getState()`, `api.submitReview()`, …). |
+| `src/lib/with-db.ts` | Route wrapper — opens/closes the request's SQLite handle and maps a thrown error to a 400. Every db-backed route uses it. |
 | `src/hooks/useAppState.ts` | Shared state and event handlers for the SPA — all `useState`, handlers, API calls. |
 | `src/migrations/` | Numbered SQL migration files: 001-initial, 002-mcq-questions, 003-mcq-reviews, 004-sprints-and-diagnostics. |
 | `test/` | Automated tests (route tests use `mkdtempSync` + `DATA_DIR` for isolation). |
@@ -80,7 +80,7 @@ The canonical product specification is [spec.md](./spec.md). Follow it when addi
 ## Migration System
 
 - New schema changes must be added as numbered files in `src/migrations/`.
-- Each migration exports `{ id, description, up(): string }`.
+- Each migration exports `{ id, description, sql }`.
 - The `_migrations` table tracks which migrations have been applied.
 - Never modify an existing migration after it has been applied — create a new one instead.
 

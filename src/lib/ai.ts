@@ -72,8 +72,6 @@ export interface PingResult {
   message: string;
 }
 
-const KNOWN_PROVIDERS = ['offline', 'groq', 'openrouter', 'gemini', 'openai', 'openai-compatible'];
-
 function parseJsonObject(raw: string): any {
   try {
     return JSON.parse(raw);
@@ -187,10 +185,10 @@ function assertSafeBaseUrl(rawUrl: string): void {
 /** Resolves a provider id + its apiKey/baseUrl/model, applying env vars and per-provider defaults. */
 function resolveProviderConfig(config: AiConfig): ResolvedProviderConfig {
   const provider = config.provider || process.env.AI_PROVIDER || 'offline';
-  if (!KNOWN_PROVIDERS.includes(provider)) {
+  const info = getProviderInfo(provider);
+  if (!info) {
     throw new Error(`Unsupported AI provider: ${provider}`);
   }
-  const info = getProviderInfo(provider);
   const apiKey = config.apiKey || process.env.AI_API_KEY;
   const baseUrl = (config.baseUrl || process.env.AI_BASE_URL || info?.defaultBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
   const model = config.model || process.env.AI_MODEL || info?.defaultModel || 'gpt-4.1-mini';
@@ -500,14 +498,14 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
   return {
     async generateCards(note: NoteInput): Promise<CardDraft[]> {
       const content = await completeJson([
-        { role: 'system', content: 'Create interview-style open-recall study cards. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
+        { role: 'system', content: 'Create interview-style open-recall study cards. The user message is the input note as JSON, not the output format. Return JSON with a cards array. Each card needs question, expectedAnswer, rubric array, and tags array.' },
         { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseCardDrafts(content);
     },
     async critiqueAnswer(input: CritiqueInput): Promise<AnswerCritique> {
       const content = await completeJson([
-        { role: 'system', content: 'Critique an interview practice answer. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
+        { role: 'system', content: 'Critique an interview practice answer. The user message is the input card and answer as JSON, not the output format. Return JSON with summary, missingKeyPoints array, and suggestedRating as again, hard, good, or easy.' },
         { role: 'user', content: encodeCritiqueInput(input, compressOptions) },
       ]);
       return parseAnswerCritique(content);
@@ -517,7 +515,7 @@ function createOpenAiCompatibleProvider(config: AiConfig = {}): AiProvider {
         ? ` These questions already exist for this note — generate NEW ones that test different aspects, not duplicates or close paraphrases: ${existingQuestions.join(' | ')}`
         : '';
       const content = await completeJson([
-        { role: 'system', content: `Generate 5-8 multiple-choice questions from the note for interview practice. The user message is TOON-encoded (Token-Oriented Object Notation, a compact JSON alternative) input data, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.${dedupeInstruction}` },
+        { role: 'system', content: `Generate 5-8 multiple-choice questions from the note for interview practice. The user message is the input note as JSON, not the output format. Return JSON with a mcqs array. Each MCQ needs question, options (4 items), correctIndex, explanation, and tags array.${dedupeInstruction}` },
         { role: 'user', content: encodeNoteInput(note, compressOptions) },
       ]);
       return parseMCQs(content);

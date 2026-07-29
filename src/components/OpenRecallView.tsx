@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import Button from './ui/Button';
-import Tag from './ui/Tag';
 import { IconCritique, IconEye, IconX } from './ui/Icons';
 
 interface Card {
@@ -72,7 +71,7 @@ export default function OpenRecallView({
           <h3 className="question">{activeCard.question}</h3>
           <div className="tags">
             {activeCard.tags.map((tag: string) => (
-              <Tag key={tag} label={tag} />
+              <span key={tag} className="tag">{tag}</span>
             ))}
           </div>
           <div className="answer-panel">

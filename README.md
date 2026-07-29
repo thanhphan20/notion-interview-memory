@@ -45,9 +45,8 @@ flowchart LR
     API -->|read/write| DB
 ```
 
-The UI calls the API routes for everything (or serves local mock fixtures when
-`USE_MOCK=true`, no backend needed). The routes sync content from Notion, call
-the configured AI provider to draft cards/MCQs and critique answers, run the
+The UI calls the API routes for everything. The routes sync content from Notion,
+call the configured AI provider to draft cards/MCQs and critique answers, run the
 spaced-repetition scheduling logic, and persist it all to a local SQLite file.
 
 ## Tech Stack
@@ -74,13 +73,11 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-## Mock Data Mode
+## Offline Mode
 
-The UI can run fully offline with realistic mock data — no Notion setup or API keys needed.
-
-Set `USE_MOCK = true` in `src/lib/mock-data.ts` (default). All interactions
-(answer, critique, approve, reject, review) work locally. Flip to `false` to
-connect the real API.
+No Notion setup or API keys needed to try the flow: leave the AI provider set to
+`offline` in Settings and the deterministic local provider generates cards, MCQs,
+and critiques.
 
 ## Project Structure
 
@@ -90,14 +87,13 @@ src/
 │   ├── api/              Next.js API route handlers
 │   │   ├── dashboard/    GET dashboard payload (countdown + heatmap + lapses + due queue)
 │   │   ├── interview-date/  GET/POST Interview Date
-│   │   ├── lapses/       GET recent lapses (configurable window)
 │   │   ├── sprints/      POST start / :id/complete
 │   │   └── mcq-diagnostics/  POST start / :id/complete
 │   ├── globals.css       Global styles (Orange/Geist tokens, typography)
 │   ├── layout.tsx        Root layout
 │   └── page.tsx          Thin SPA shell — component map + view routing
 ├── components/
-│   ├── ui/               Primitives: Button, Card, Tag, Toast, MetricCard
+│   ├── ui/               Primitives: Button, Card, Toast, MetricCard, Icons
 │   ├── Sidebar.tsx       Navigation sidebar (Dashboard/Practice/Diagnostic/Sprint/…)
 │   ├── TopBar.tsx        Stats bar
 │   ├── DashboardView.tsx    Home — Countdown + Heatmap grid + Lapses + Due Queue
@@ -115,17 +111,17 @@ src/
 │   └── useAppState.ts    All state + event handlers extracted from page.tsx
 ├── lib/
 │   ├── ai.ts             AI provider interface & output parsing
-│   ├── api-client.ts     API facade (real + mock implementations, USE_MOCK isolated)
+│   ├── api-client.ts     Typed fetch wrappers for the API routes
 │   ├── countdown.ts      Pure countdown-payload assembly (days, sprint avg, green %)
 │   ├── database.ts       SQLite CRUD (includes clamp integration in recordReview)
 │   ├── heatmap.ts        Pure computeHeatmap — retention rate, trend, cold tags
 │   ├── lapses.ts         Pure computeLapses — recent again/hard reviews
 │   ├── mcq-diagnostic.ts Pure pickDiagnosticMCQs + computeWeaknessReport
 │   ├── migrate.ts        SQL migration runner
-│   ├── mock-data.ts      Mock data for offline preview
 │   ├── notion.ts         Notion API sync & block extraction
 │   ├── scheduler.ts      FSRS-style spaced repetition + applyInterviewDateClamp
-│   └── sprint.ts         Pure pickSprintItems + computeSprintScore
+│   ├── sprint.ts         Pure pickSprintItems + computeSprintScore
+│   └── with-db.ts        Route wrapper: open/close SQLite, errors → 400
 └── migrations/
     ├── 001-initial.ts     Core schema (notes, drafts, cards, schedules, reviews)
     ├── 002-mcq-questions.ts  mcq_questions table

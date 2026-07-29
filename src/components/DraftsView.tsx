@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import Card from './ui/Card';
-import Tag from './ui/Tag';
 import Button from './ui/Button';
 import { IconMC, IconX } from './ui/Icons';
 import GenerateMCQsModal from './GenerateMCQsModal';
@@ -86,7 +85,7 @@ export default function DraftsView({ drafts, notes, onApprove, onReject, onGener
               )}
               <div className="tags">
                 {draft.tags.map((tag: string) => (
-                  <Tag key={tag} label={tag} />
+                  <span key={tag} className="tag">{tag}</span>
                 ))}
               </div>
               <div className="actions">

@@ -120,17 +120,13 @@ export function createAppDatabase(filename: string = defaultDatabasePath()): App
   }
   const sqlite = new Database(filename);
   sqlite.run('PRAGMA foreign_keys = ON');
-  migrate(sqlite);
+  runMigrations(sqlite);
   return new AppDatabase(sqlite);
 }
 
 function defaultDatabasePath(): string {
   const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
   return path.join(dataDir, 'app.sqlite');
-}
-
-function migrate(db: Database): void {
-  runMigrations(db);
 }
 
 export class AppDatabase {
@@ -426,7 +422,16 @@ export class AppDatabase {
       INSERT INTO mcq_reviews (mcq_id, selected_index, correct, reviewed_at)
       VALUES (?, ?, ?, ?)
     `).run(mcqId, selectedIndex, correct, reviewedAt) as { lastInsertRowid: number };
-    return mapMCQReview({ id: Number(result.lastInsertRowid), mcq_id: mcqId, selected_index: selectedIndex, correct, reviewed_at: reviewedAt }, mcq);
+    return mapMCQReviewRow({
+      id: Number(result.lastInsertRowid),
+      mcq_id: mcqId,
+      question: mcq.question,
+      options_json: JSON.stringify(mcq.options),
+      correct_index: mcq.correctIndex,
+      selected_index: selectedIndex,
+      correct,
+      reviewed_at: reviewedAt,
+    });
   }
 
   listMCQReviews(): MCQReview[] {
@@ -665,19 +670,6 @@ function mapReview(row: any): Review {
     elapsedSeconds: row.elapsed_seconds,
     reviewedAt: row.reviewed_at,
     tags: row.tags_json ? JSON.parse(row.tags_json) : undefined,
-  };
-}
-
-function mapMCQReview(row: any, mcq: MCQQuestion): MCQReview {
-  return {
-    id: row.id,
-    mcqId: row.mcq_id,
-    question: mcq.question,
-    options: mcq.options,
-    correctIndex: mcq.correctIndex,
-    selectedIndex: row.selected_index,
-    correct: row.correct === 1,
-    reviewedAt: row.reviewed_at,
   };
 }
 

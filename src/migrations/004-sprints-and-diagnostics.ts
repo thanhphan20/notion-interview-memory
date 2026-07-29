@@ -3,8 +3,7 @@ import type { Migration } from '../lib/migrate';
 const migration: Migration = {
   id: 4,
   description: 'Create sprints and mcq_diagnostics tables for cramming-workflow-v2 sessions',
-  up(): string {
-    return `
+  sql: `
       CREATE TABLE IF NOT EXISTS sprints (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         started_at TEXT NOT NULL,
@@ -23,8 +22,7 @@ const migration: Migration = {
         score INTEGER,
         weakness_report_json TEXT
       );
-    `;
-  },
+  `,
 };
 
 export default migration;

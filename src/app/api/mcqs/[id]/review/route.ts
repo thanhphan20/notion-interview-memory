@@ -1,20 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAppDatabase } from '@/lib/database';
+import { NextResponse } from 'next/server';
+import { withDb } from '@/lib/with-db';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const db = createAppDatabase();
-  try {
-    const body = await request.json();
-    const selectedIndex = body.selectedIndex;
-    if (typeof selectedIndex !== 'number') {
-      return NextResponse.json({ error: 'selectedIndex is required.' }, { status: 400 });
-    }
-    const review = db.recordMCQReview(Number(id), selectedIndex);
-    return NextResponse.json({ review });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  } finally {
-    db.close();
+type Ctx = { params: Promise<{ id: string }> };
+
+export const POST = withDb(async (db, request: Request, { params }: Ctx) => {
+  const { selectedIndex } = await request.json();
+  if (typeof selectedIndex !== 'number') {
+    return NextResponse.json({ error: 'selectedIndex is required.' }, { status: 400 });
   }
-}
+  return { review: db.recordMCQReview(Number((await params).id), selectedIndex) };
+});

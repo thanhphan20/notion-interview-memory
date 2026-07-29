@@ -7,7 +7,7 @@ import m004 from '../migrations/004-sprints-and-diagnostics';
 export interface Migration {
   id: number;
   description: string;
-  up(): string;
+  sql: string;
 }
 
 const migrations: Migration[] = [m001, m002, m003, m004];
@@ -28,8 +28,7 @@ export function runMigrations(db: Database): void {
   for (const migration of migrations.sort((a, b) => a.id - b.id)) {
     if (applied.has(migration.id)) continue;
 
-    const sql = migration.up();
-    db.run(sql);
+    db.run(migration.sql);
 
     db.prepare('INSERT INTO _migrations (id, name, applied_at) VALUES (?, ?, ?)').run(
       migration.id,
