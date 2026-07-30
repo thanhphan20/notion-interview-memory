@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getApiClient } from '@/lib/api-client';
-import { USE_MOCK } from '@/lib/mock-data';
+import { api } from '@/lib/api-client';
 
 export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
 
@@ -28,8 +27,6 @@ function readAiConfigFromForm(data: FormData) {
 }
 
 export function useAppState() {
-  const api = getApiClient();
-
   const [view, setView] = useState<ViewType>('dashboard');
   const [dashboard, setDashboard] = useState<any>(null);
   const [sprintSession, setSprintSession] = useState<any>(null);
@@ -62,25 +59,15 @@ export function useAppState() {
   }, []);
 
   const loadSettings = useCallback(async () => {
-    if (USE_MOCK) return;
     try {
       const data = await api.getSettings();
       setSettings(data);
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, triggerStatus]);
+  }, [triggerStatus]);
 
   const loadState = useCallback(async (forceAdvance = false): Promise<any> => {
-    if (USE_MOCK) {
-      const data = await api.getState();
-      setStats(data.stats);
-      setDrafts(data.drafts);
-      setDueCards(data.dueCards);
-      setReviews(data.reviews);
-      if (data.mcqs) setMcqs(data.mcqs);
-      return data;
-    }
     try {
       const data = await api.getState();
       setStats(data.stats);
@@ -102,10 +89,9 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, triggerStatus, activeCard]);
+  }, [triggerStatus, activeCard]);
 
   useEffect(() => {
-    if (USE_MOCK) return;
     (async () => {
       try {
         const data = await api.getSettings();
@@ -150,7 +136,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadSettings]);
+  }, [triggerStatus, loadSettings]);
 
   const handlePingProviders = useCallback(async (form: HTMLFormElement) => {
     const aiConfig = readAiConfigFromForm(new FormData(form));
@@ -171,7 +157,7 @@ export function useAppState() {
     } finally {
       setProviderCheckPending(false);
     }
-  }, [api, triggerStatus]);
+  }, [triggerStatus]);
 
   const handleSyncNotion = useCallback(async () => {
     triggerStatus('Syncing Notion...');
@@ -182,7 +168,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleGenerateAllDrafts = useCallback(async () => {
     triggerStatus('Generating drafts from all notes...');
@@ -194,7 +180,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleGenerateDrafts = useCallback(async (noteId: number) => {
     triggerStatus('Generating drafts...');
@@ -206,7 +192,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleGenerateMoreMCQs = useCallback(async (topics?: string[]) => {
     triggerStatus(
@@ -221,7 +207,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleApproveDraft = useCallback(async (id: number) => {
     try {
@@ -231,7 +217,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleRejectDraft = useCallback(async (id: number) => {
     try {
@@ -241,7 +227,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, loadState]);
+  }, [triggerStatus, loadState]);
 
   const handleRequestCritique = useCallback(async () => {
     if (!userAnswer.trim()) {
@@ -254,7 +240,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, activeCard, userAnswer]);
+  }, [triggerStatus, activeCard, userAnswer]);
 
   const handleSubmitReview = useCallback(async (rating: string) => {
     if (!userAnswer.trim()) {
@@ -282,7 +268,7 @@ export function useAppState() {
     } catch (err: any) {
       triggerStatus(err.message, true);
     }
-  }, [api, triggerStatus, activeCard, userAnswer, aiCritique, activeStartedAt, cardFilterTag, loadState]);
+  }, [triggerStatus, activeCard, userAnswer, aiCritique, activeStartedAt, cardFilterTag, loadState]);
 
   const handleCardFilterChange = useCallback((tag: string | null) => {
     setCardFilterTag(tag);
@@ -300,7 +286,7 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, triggerStatus]);
+  }, [triggerStatus]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -317,7 +303,7 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, triggerStatus, loadDashboard, loadState]);
+  }, [triggerStatus, loadDashboard, loadState]);
 
   const handleTagClick = useCallback((tag: string) => {
     setCardFilterTag(tag);
@@ -334,7 +320,7 @@ export function useAppState() {
       triggerStatus(e.message, true);
       setView('dashboard');
     }
-  }, [api, triggerStatus]);
+  }, [triggerStatus]);
 
   const handleCompleteSprint = useCallback(async (payload: { ratings: any[]; mcqAnswers: any[] }) => {
     if (!sprintSession) return;
@@ -346,7 +332,7 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, sprintSession, triggerStatus, loadDashboard, loadState]);
+  }, [sprintSession, triggerStatus, loadDashboard, loadState]);
 
   const handleExitSprint = useCallback(() => {
     setSprintSession(null);
@@ -364,7 +350,7 @@ export function useAppState() {
       triggerStatus(e.message, true);
       setView('dashboard');
     }
-  }, [api, triggerStatus]);
+  }, [triggerStatus]);
 
   const handleCompleteDiagnostic = useCallback(async (payload: { answers: any[] }) => {
     if (!diagnosticSession) return;
@@ -375,7 +361,7 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, diagnosticSession, triggerStatus, loadDashboard, loadState]);
+  }, [diagnosticSession, triggerStatus, loadDashboard, loadState]);
 
   const handleExitDiagnostic = useCallback(() => {
     setDiagnosticSession(null);
@@ -413,7 +399,7 @@ export function useAppState() {
     } catch (e: any) {
       triggerStatus(e.message, true);
     }
-  }, [api, mcqPracticeSession, triggerStatus, loadDashboard, loadState]);
+  }, [mcqPracticeSession, triggerStatus, loadDashboard, loadState]);
 
   const handleChangeMcqPracticeTopic = useCallback(() => {
     setMcqPracticeSession(null);

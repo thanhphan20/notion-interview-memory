@@ -3,8 +3,7 @@ import type { Migration } from '../lib/migrate';
 const migration: Migration = {
   id: 1,
   description: 'Create initial schema: settings, notes, card_drafts, cards, schedules, reviews',
-  up(): string {
-    return `
+  sql: `
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -65,8 +64,7 @@ const migration: Migration = {
         elapsed_seconds INTEGER NOT NULL,
         reviewed_at TEXT NOT NULL
       );
-    `;
-  },
+  `,
 };
 
 export default migration;

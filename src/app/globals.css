@@ -30,32 +30,10 @@
   --content-max: 1200px;
 }
 
-.display-lg {
-  font-family: 'Geist', sans-serif;
-  font-size: 48px;
-  font-weight: 700;
-  line-height: 56px;
-  letter-spacing: -0.02em;
-}
-
-.headline-md {
-  font-family: 'Geist', sans-serif;
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 32px;
-}
-
 .headline-sm {
   font-family: 'Geist', sans-serif;
   font-size: 20px;
   font-weight: 600;
-  line-height: 28px;
-}
-
-.body-lg {
-  font-family: 'Geist', sans-serif;
-  font-size: 18px;
-  font-weight: 400;
   line-height: 28px;
 }
 
@@ -66,48 +44,12 @@
   line-height: 24px;
 }
 
-.label-md {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
-  letter-spacing: 0.05em;
-}
-
 .label-sm {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   font-weight: 500;
   line-height: 16px;
   letter-spacing: 0.05em;
-}
-
-.mono {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-}
-
-.level-0 {
-  background: var(--bg);
-}
-
-.level-1 {
-  background: var(--panel);
-  border: 1px solid var(--border);
-}
-
-.level-2 {
-  background: var(--panel-high);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.focus-ring:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: var(--focus-glow);
 }
 
 * {
@@ -1034,43 +976,6 @@ select {
   color: #4caf50;
 }
 
-.practice-tabs {
-  display: flex;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  width: fit-content;
-}
-
-.practice-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  padding: 0.5rem 1rem;
-  border-radius: calc(var(--radius-sm) - 1px);
-  cursor: pointer;
-  font-family: 'Geist', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.15s;
-}
-
-.practice-tab:hover {
-  color: var(--text);
-}
-
-.practice-tab.active {
-  background: var(--bg);
-  color: var(--primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
 .mcq-options {
   display: flex;
   flex-direction: column;
@@ -1116,70 +1021,11 @@ select {
   cursor: default;
 }
 
-.mcq-marker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
 .mcq-letter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-}
-
-.mcq-icon-correct {
-  color: #4caf50;
-}
-
-.mcq-icon-incorrect {
-  color: var(--danger);
-}
-
-.mcq-text {
-  flex: 1;
-  line-height: 1.4;
-}
-
-.mcq-result {
-  padding: 1rem;
-  border-radius: var(--radius-sm);
-  animation: fade-in 0.15s ease-out;
-}
-
-.mcq-result.correct {
-  background: rgba(76, 175, 80, 0.1);
-  border-left: 4px solid #4caf50;
-}
-
-.mcq-result.incorrect {
-  background: rgba(255, 180, 171, 0.1);
-  border-left: 4px solid var(--danger);
-}
-
-.mcq-result h3 {
-  font-family: 'Geist', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.375rem;
-}
-
-.mcq-result.correct h3 {
-  color: #4caf50;
-}
-
-.mcq-result.incorrect h3 {
-  color: var(--danger);
-}
-
-.mcq-result p {
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  color: var(--text);
 }
 
 .history-summary {
@@ -1358,55 +1204,6 @@ select {
 
 .view-enter {
   animation: slide-in 0.15s ease-out;
-}
-
-.mcq-nav {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.mcq-nav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mcq-nav-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.mcq-nav-btn.current {
-  background: var(--primary);
-  color: var(--bg);
-  border-color: var(--primary);
-}
-
-.mcq-nav-btn.correct {
-  border-color: #4caf50;
-  color: #4caf50;
-}
-
-.mcq-nav-btn.incorrect {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.shuffle-btn {
-  cursor: pointer;
 }
 
 .mcq-opt-history {

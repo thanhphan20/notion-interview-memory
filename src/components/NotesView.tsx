@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import Card from './ui/Card';
-import Tag from './ui/Tag';
 import Button from './ui/Button';
 import { IconX } from './ui/Icons';
 
@@ -74,7 +73,7 @@ export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: 
               </p>
               <div className="tags">
                 {note.tags.map((tag: string) => (
-                  <Tag key={tag} label={tag} />
+                  <span key={tag} className="tag">{tag}</span>
                 ))}
               </div>
               <div className="actions">

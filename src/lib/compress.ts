@@ -1,4 +1,3 @@
-import { encode as toonEncode } from '@toon-format/toon';
 import type { NoteInput, CritiqueInput } from './ai';
 
 export interface CompressOptions {
@@ -6,12 +5,6 @@ export interface CompressOptions {
   maxTokens?: number;
   /** Set false to skip compression entirely (returns the input unchanged). */
   enabled?: boolean;
-}
-
-export interface CompressResult {
-  text: string;
-  originalTokens: number;
-  compressedTokens: number;
 }
 
 const DEFAULT_MAX_TOKENS = 2000;
@@ -34,13 +27,9 @@ export function estimateTokens(text: string): number {
  *  - drop consecutive duplicate lines (common in pasted Notion exports)
  *  - optionally truncate to a token budget at a sentence/line boundary
  */
-export function compressText(input: string, options: CompressOptions = {}): CompressResult {
+export function compressText(input: string, options: CompressOptions = {}): string {
   const original = typeof input === 'string' ? input : String(input ?? '');
-  const originalTokens = estimateTokens(original);
-
-  if (options.enabled === false) {
-    return { text: original, originalTokens, compressedTokens: originalTokens };
-  }
+  if (options.enabled === false) return original;
 
   const lines = original
     .replace(/\r\n?/g, '\n')
@@ -62,14 +51,9 @@ export function compressText(input: string, options: CompressOptions = {}): Comp
     collapsed.push(line);
   }
 
-  let text = collapsed.join('\n').trim();
-
+  const text = collapsed.join('\n').trim();
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-  if (maxTokens > 0 && estimateTokens(text) > maxTokens) {
-    text = truncateToTokens(text, maxTokens);
-  }
-
-  return { text, originalTokens, compressedTokens: estimateTokens(text) };
+  return maxTokens > 0 && estimateTokens(text) > maxTokens ? truncateToTokens(text, maxTokens) : text;
 }
 
 function truncateToTokens(text: string, maxTokens: number): string {
@@ -92,33 +76,12 @@ function truncateToTokens(text: string, maxTokens: number): string {
   return slice.slice(0, cut + 1).trim() + '\n[...truncated for length...]';
 }
 
-/** Compress the free-form fields of a note before sending it to the AI provider. */
-export function compressNoteInput(note: NoteInput, options: CompressOptions = {}): NoteInput {
-  return {
-    ...note,
-    content: compressText(note.content || '', options).text,
-  };
-}
-
-/** Compress the free-form fields of a critique request before sending it to the AI provider. */
-export function compressCritiqueInput(input: CritiqueInput, options: CompressOptions = {}): CritiqueInput {
-  return {
-    ...input,
-    answer: compressText(input.answer || '', options).text,
-  };
-}
-
-/**
- * Compress a note's free-form text, then encode the whole payload as TOON
- * (https://github.com/toon-format/toon) instead of JSON. TOON drops the
- * repeated quotes/braces/commas of JSON, which further cuts input tokens on
- * top of the text-level compression above.
- */
+/** Compress a note's free-form text, then encode the payload for the AI provider. */
 export function encodeNoteInput(note: NoteInput, options: CompressOptions = {}): string {
-  return toonEncode(compressNoteInput(note, options));
+  return JSON.stringify({ ...note, content: compressText(note.content || '', options) });
 }
 
-/** Compress a critique request's free-form text, then encode it as TOON. */
+/** Compress a critique request's free-form text, then encode it for the AI provider. */
 export function encodeCritiqueInput(input: CritiqueInput, options: CompressOptions = {}): string {
-  return toonEncode(compressCritiqueInput(input, options));
+  return JSON.stringify({ ...input, answer: compressText(input.answer || '', options) });
 }

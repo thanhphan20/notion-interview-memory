@@ -1,30 +1,23 @@
 import { NextResponse } from 'next/server';
-import { createAppDatabase } from '@/lib/database';
 import { computeHeatmap } from '@/lib/heatmap';
 import { pickSprintItems } from '@/lib/sprint';
+import { withDb } from '@/lib/with-db';
 
-export async function POST() {
-  const db = createAppDatabase();
+export const POST = withDb((db) => {
+  const cards = db.listCards();
+  const mcqs = db.listMCQs();
   try {
-    const cards = db.listCards();
-    const mcqs = db.listMCQs();
-    const heatmap = computeHeatmap(cards, db.listReviews());
-
-    const selection = pickSprintItems(cards, mcqs, heatmap);
-    const sprint = db.createSprint(selection.cardIds, selection.mcqIds);
-
-    const selectedCards = selection.cardIds
-      .map((id) => cards.find((c) => c.id === id))
-      .filter(Boolean);
-    const selectedMCQs = selection.mcqIds
-      .map((id) => mcqs.find((m) => m.id === id))
-      .filter(Boolean);
-
-    return NextResponse.json({ sprint, cards: selectedCards, mcqs: selectedMCQs });
+    const selection = pickSprintItems(cards, mcqs, computeHeatmap(cards, db.listReviews()));
+    return {
+      sprint: db.createSprint(selection.cardIds, selection.mcqIds),
+      cards: selection.cardIds.map((id) => cards.find((c) => c.id === id)).filter(Boolean),
+      mcqs: selection.mcqIds.map((id) => mcqs.find((m) => m.id === id)).filter(Boolean),
+    };
   } catch (error: any) {
-    const status = error.message?.includes('INSUFFICIENT_DECK') ? 400 : 500;
-    return NextResponse.json({ error: error.message, code: status === 400 ? 'INSUFFICIENT_DECK' : 'INTERNAL' }, { status });
-  } finally {
-    db.close();
+    const insufficient = error.message?.includes('INSUFFICIENT_DECK');
+    return NextResponse.json(
+      { error: error.message, code: insufficient ? 'INSUFFICIENT_DECK' : 'INTERNAL' },
+      { status: insufficient ? 400 : 500 },
+    );
   }
-}
+});

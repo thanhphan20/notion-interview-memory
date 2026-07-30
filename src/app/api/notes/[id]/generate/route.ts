@@ -1,24 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAppDatabase } from '@/lib/database';
+import { NextResponse } from 'next/server';
 import { createAiProvider } from '@/lib/ai';
+import { withDb, type IdContext } from '@/lib/with-db';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const db = createAppDatabase();
-  try {
-    const note = db.getNote(Number(id));
-    if (!note) return NextResponse.json({ error: 'Note not found.' }, { status: 404 });
-    const aiProvider = createAiProvider(db.getSetting('ai') || {});
-    const [drafts, mcqs] = await Promise.all([
-      aiProvider.generateCards(note),
-      aiProvider.generateMCQs(note),
-    ]);
-    const savedDrafts = db.createDrafts(note.id, drafts);
-    const savedMCQs = db.createMCQs(note.id, mcqs);
-    return NextResponse.json({ drafts: savedDrafts, mcqs: savedMCQs });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  } finally {
-    db.close();
-  }
-}
+export const POST = withDb(async (db, _request: Request, { params }: IdContext) => {
+  const note = db.getNote(Number((await params).id));
+  if (!note) return NextResponse.json({ error: 'Note not found.' }, { status: 404 });
+  const ai = createAiProvider(db.getSetting('ai') || {});
+  const [drafts, mcqs] = await Promise.all([ai.generateCards(note), ai.generateMCQs(note)]);
+  return { drafts: db.createDrafts(note.id, drafts), mcqs: db.createMCQs(note.id, mcqs) };
+});

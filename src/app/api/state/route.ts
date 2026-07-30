@@ -1,24 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAppDatabase } from '@/lib/database';
+import { withDb, nowFrom } from '@/lib/with-db';
 
-export async function GET(request: NextRequest) {
-  const db = createAppDatabase();
-  try {
-    const url = new URL(request.url);
-    const now = url.searchParams.get('now') ? new Date(url.searchParams.get('now')!) : new Date();
-    const stats = db.stats(now);
-    const notes = db.listNotes();
-    const drafts = db.listDrafts('draft');
-    const cards = db.listCards();
-    const dueCards = db.listDueCards(now);
-    const reviews = db.listReviews();
-    const mcqs = db.listMCQs();
-    const mcqReviews = db.listMCQReviews();
-
-    return NextResponse.json({ stats, notes, drafts, cards, dueCards, reviews, mcqs, mcqReviews });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  } finally {
-    db.close();
-  }
-}
+export const GET = withDb((db, request: Request) => {
+  const now = nowFrom(request);
+  return {
+    stats: db.stats(now),
+    notes: db.listNotes(),
+    drafts: db.listDrafts('draft'),
+    cards: db.listCards(),
+    dueCards: db.listDueCards(now),
+    reviews: db.listReviews(),
+    mcqs: db.listMCQs(),
+    mcqReviews: db.listMCQReviews(),
+  };
+});

@@ -5,3 +5,6 @@ node_modules/
 opencode.json
 opencode.jsonc
 .next/
+.codegraph/
+tsconfig.tsbuildinfo
+opencode-test-*/

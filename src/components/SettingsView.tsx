@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import Button from './ui/Button';
 import { AI_PROVIDERS, getProviderInfo } from '@/lib/ai-models';
 import { recommendModels, type ModelRecommendation } from '@/lib/model-recommend';
-import { getApiClient } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 import type { AiModelOption, AiPingResult } from '@/lib/api-client';
 
 interface AiProviderConfig {
@@ -97,7 +97,7 @@ function ProviderFields({ prefix, value, onRemove, label, collapsible, className
   const handleFetchModels = async () => {
     setModelFetch({ state: 'loading' });
     try {
-      const fetched = await getApiClient().listAiModels({
+      const fetched = await api.listAiModels({
         provider,
         apiKey: apiKeyInputRef.current?.value.trim(),
         baseUrl: baseUrlInputRef.current?.value.trim(),
