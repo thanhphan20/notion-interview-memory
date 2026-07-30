@@ -18,4 +18,10 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun tsc
       - run: bun lint
-      - run: bun audit
+      - run: bun test
+      # GHSA-mh99-v99m-4gvg (brace-expansion DoS) is ignored: it reaches us only
+      # through eslint > @eslint/eslintrc > minimatch, a dev-only lint path. The
+      # sole patched release is brace-expansion 5.0.8, whose export shape breaks
+      # minimatch 3.x ("expand is not a function"), and eslintrc still pins
+      # minimatch ^3.1.5. Drop this flag once eslint ships a compatible minimatch.
+      - run: bun audit --ignore=GHSA-mh99-v99m-4gvg

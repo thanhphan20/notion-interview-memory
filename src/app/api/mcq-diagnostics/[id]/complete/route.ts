@@ -1,9 +1,7 @@
 import { computeWeaknessReport } from '@/lib/mcq-diagnostic';
-import { withDb } from '@/lib/with-db';
+import { withDb, type IdContext } from '@/lib/with-db';
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export const POST = withDb(async (db, request: Request, { params }: Ctx) => {
+export const POST = withDb(async (db, request: Request, { params }: IdContext) => {
   const id = Number((await params).id);
   if (Number.isNaN(id)) throw new Error('Invalid diagnostic id');
 

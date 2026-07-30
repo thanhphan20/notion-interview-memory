@@ -428,6 +428,7 @@ export class AppDatabase {
       question: mcq.question,
       options_json: JSON.stringify(mcq.options),
       correct_index: mcq.correctIndex,
+      tags_json: JSON.stringify(mcq.tags || []),
       selected_index: selectedIndex,
       correct,
       reviewed_at: reviewedAt,

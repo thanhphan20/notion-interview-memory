@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAiProvider } from '@/lib/ai';
-import { withDb } from '@/lib/with-db';
+import { withDb, type IdContext } from '@/lib/with-db';
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export const POST = withDb(async (db, _request: Request, { params }: Ctx) => {
+export const POST = withDb(async (db, _request: Request, { params }: IdContext) => {
   const note = db.getNote(Number((await params).id));
   if (!note) return NextResponse.json({ error: 'Note not found.' }, { status: 404 });
   const ai = createAiProvider(db.getSetting('ai') || {});

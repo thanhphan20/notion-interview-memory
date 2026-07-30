@@ -1,8 +1,6 @@
-import { withDb } from '@/lib/with-db';
+import { withDb, type IdContext } from '@/lib/with-db';
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export const POST = withDb(async (db, request: Request, { params }: Ctx) => {
+export const POST = withDb(async (db, request: Request, { params }: IdContext) => {
   const cardId = Number((await params).id);
   const body = await request.json();
   const review = db.recordReview({

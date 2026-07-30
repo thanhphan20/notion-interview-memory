@@ -21,6 +21,9 @@ export function withDb<A extends unknown[]>(handler: (db: AppDatabase, ...args: 
   };
 }
 
+/** Second argument Next.js passes to a `[id]` route handler. */
+export type IdContext = { params: Promise<{ id: string }> };
+
 /** Reads the `?now=` override used by tests and time-travel debugging. */
 export function nowFrom(request: Request): Date {
   const value = new URL(request.url).searchParams.get('now');

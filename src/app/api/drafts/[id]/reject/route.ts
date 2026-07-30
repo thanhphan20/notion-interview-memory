@@ -1,7 +1,5 @@
-import { withDb } from '@/lib/with-db';
+import { withDb, type IdContext } from '@/lib/with-db';
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export const POST = withDb(async (db, _request: Request, { params }: Ctx) => ({
+export const POST = withDb(async (db, _request: Request, { params }: IdContext) => ({
   draft: db.rejectDraft(Number((await params).id)),
 }));

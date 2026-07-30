@@ -116,6 +116,27 @@ test('createMCQs stores questions and listMCQs returns them', () => {
   db.close();
 });
 
+test('recordMCQReview returns the same shape listMCQReviews does, tags included', () => {
+  const db = createAppDatabase(':memory:');
+  const note = db.upsertNote({
+    notionPageId: 'mcq-review-shape-1',
+    title: 'MCQ Review Shape',
+    content: 'Content for the MCQ review shape check.',
+  });
+  const [mcq] = db.createMCQs(note.id, [
+    { question: 'Tagged?', options: ['A', 'B'], correctIndex: 1, explanation: 'B.', tags: ['Databases', 'SQL'] },
+  ]);
+
+  const recorded = db.recordMCQReview(mcq.id, 1);
+  const listed = db.listMCQReviews().find((r) => r.id === recorded.id)!;
+
+  expect(recorded.tags).toEqual(['Databases', 'SQL']);
+  expect(recorded).toEqual(listed);
+  expect(recorded.correct).toBe(true);
+
+  db.close();
+});
+
 test('createMCQs deletes old MCQs for the same note_id', () => {
   const db = createAppDatabase(':memory:');
   const note = db.upsertNote({
