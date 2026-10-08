@@ -1,10 +1,10 @@
 'use client';
 
 import {
-  IconPractice, IconDrafts, IconNotes, IconHistory, IconSettings, IconMC, IconBrain,
+  IconPractice, IconDrafts, IconNotes, IconHistory, IconSettings, IconMC, IconBrain, IconCheck,
 } from './ui/Icons';
 
-type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'practice' | 'roadmaps' | 'checklist' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 interface SidebarProps {
   view: ViewType;
@@ -14,6 +14,8 @@ interface SidebarProps {
 const NAV_ITEMS: { key: ViewType; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <IconHistory /> },
   { key: 'practice', label: 'Practice', icon: <IconPractice /> },
+  { key: 'roadmaps', label: 'Roadmaps', icon: <IconNotes /> },
+  { key: 'checklist', label: 'Checklist', icon: <IconCheck /> },
   { key: 'diagnostic', label: 'Diagnostic', icon: <IconDrafts /> },
   { key: 'mcqPractice', label: 'MCQ Practice', icon: <IconMC /> },
   { key: 'sprint', label: 'Sprint', icon: <IconPractice /> },

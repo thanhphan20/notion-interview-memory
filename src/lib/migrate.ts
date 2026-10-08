@@ -3,6 +3,7 @@ import m001 from '../migrations/001-initial';
 import m002 from '../migrations/002-mcq-questions';
 import m003 from '../migrations/003-mcq-reviews';
 import m004 from '../migrations/004-sprints-and-diagnostics';
+import m005 from '../migrations/005-revision-checklist';
 
 export interface Migration {
   id: number;
@@ -10,7 +11,7 @@ export interface Migration {
   sql: string;
 }
 
-const migrations: Migration[] = [m001, m002, m003, m004];
+const migrations: Migration[] = [m001, m002, m003, m004, m005];
 
 export function runMigrations(db: Database): void {
   db.run(`

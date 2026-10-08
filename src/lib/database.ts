@@ -6,6 +6,7 @@ import type { Schedule } from './scheduler';
 import type { CardDraft, MCQ } from './ai';
 import type { NotionNote } from './notion';
 import { runMigrations } from './migrate';
+import type { ChecklistImportItem, ChecklistSourceStatus } from './checklist';
 
 export interface Note {
   id: number;
@@ -16,6 +17,20 @@ export interface Note {
   tags: string[];
   notionLastEditedTime: string;
   syncedAt: string;
+}
+
+export interface ChecklistItem extends ChecklistImportItem {
+  id: number;
+  done: boolean;
+  takeaway: string;
+  importedAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface ChecklistItemPatch {
+  done?: boolean;
+  takeaway?: string;
 }
 
 export interface Draft {
@@ -166,6 +181,95 @@ export class AppDatabase {
 
   clearInterviewDate(): void {
     this.db.prepare('DELETE FROM settings WHERE key = ?').run('interview_date');
+  }
+
+  importChecklistItems(items: ChecklistImportItem[]): { countsByPart: Record<string, number> } {
+    if (items.length === 0) throw new Error('Checklist import has no items.');
+    const keys = items.map((item) => item.itemKey);
+    if (new Set(keys).size !== keys.length) throw new Error('Checklist import contains duplicate item keys.');
+
+    const now = new Date().toISOString();
+    const upsert = this.db.prepare(`
+      INSERT INTO checklist_items (
+        item_key, part_key, part_title, section_title, category, ordinal,
+        source_text, source_status, claim_flags_json, imported_at, updated_at, archived_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      ON CONFLICT(item_key) DO UPDATE SET
+        part_key = excluded.part_key,
+        part_title = excluded.part_title,
+        section_title = excluded.section_title,
+        category = excluded.category,
+        ordinal = excluded.ordinal,
+        source_text = excluded.source_text,
+        source_status = excluded.source_status,
+        claim_flags_json = excluded.claim_flags_json,
+        imported_at = excluded.imported_at,
+        updated_at = excluded.updated_at,
+        archived_at = NULL
+    `);
+    const archive = this.db.prepare(`
+      UPDATE checklist_items SET archived_at = ?, updated_at = ?
+      WHERE archived_at IS NULL AND item_key NOT IN (${keys.map(() => '?').join(', ')})
+    `);
+
+    this.withTransaction(() => {
+      for (const item of items) {
+        upsert.run(
+          item.itemKey,
+          item.partKey,
+          item.partTitle,
+          item.sectionTitle,
+          item.category,
+          item.ordinal,
+          item.sourceText,
+          item.sourceStatus,
+          JSON.stringify(item.claimFlags),
+          now,
+          now
+        );
+      }
+      archive.run(now, now, ...keys);
+    });
+
+    const countsByPart: Record<string, number> = {};
+    for (const item of this.listChecklistItems()) {
+      countsByPart[item.partKey] = (countsByPart[item.partKey] ?? 0) + 1;
+    }
+    return { countsByPart };
+  }
+
+  listChecklistItems(): ChecklistItem[] {
+    const rows = this.db.prepare(`
+      SELECT * FROM checklist_items
+      WHERE archived_at IS NULL
+      ORDER BY ordinal ASC, id ASC
+    `).all() as any[];
+    return rows.map(mapChecklistItem);
+  }
+
+  updateChecklistItem(id: number, patch: ChecklistItemPatch): ChecklistItem {
+    const assignments: string[] = [];
+    const values: (string | number)[] = [];
+    if (typeof patch.done === 'boolean') {
+      assignments.push('done = ?');
+      values.push(patch.done ? 1 : 0);
+    }
+    if (typeof patch.takeaway === 'string') {
+      assignments.push('takeaway = ?');
+      values.push(patch.takeaway);
+    }
+    if (assignments.length === 0) throw new Error('Checklist update is empty.');
+
+    assignments.push('updated_at = ?');
+    values.push(new Date().toISOString(), id);
+    const result = this.db.prepare(`
+      UPDATE checklist_items SET ${assignments.join(', ')}
+      WHERE id = ? AND archived_at IS NULL
+    `).run(...values);
+    if (result.changes === 0) throw new Error(`Checklist item not found: ${id}`);
+
+    const row = this.db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(id) as any;
+    return mapChecklistItem(row);
   }
 
   upsertNote(note: NotionNote | { notionPageId: string; title: string; content: string; sourceUrl?: string; tags?: string[]; notionLastEditedTime?: string }): Note {
@@ -617,6 +721,26 @@ function mapNote(row: any): Note {
     tags: JSON.parse(row.tags_json),
     notionLastEditedTime: row.notion_last_edited_time,
     syncedAt: row.synced_at
+  };
+}
+
+function mapChecklistItem(row: any): ChecklistItem {
+  return {
+    id: row.id,
+    itemKey: row.item_key,
+    partKey: row.part_key,
+    partTitle: row.part_title,
+    sectionTitle: row.section_title,
+    category: row.category,
+    ordinal: row.ordinal,
+    sourceText: row.source_text,
+    sourceStatus: row.source_status as ChecklistSourceStatus,
+    claimFlags: JSON.parse(row.claim_flags_json),
+    done: row.done === 1,
+    takeaway: row.takeaway,
+    importedAt: row.imported_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
   };
 }
 

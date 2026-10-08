@@ -426,6 +426,61 @@ Sync Notion database: fetch pages from user's configured Notion database and cre
 
 ---
 
+### Revision Checklist
+
+Checklist data comes from a local SQLite snapshot imported from the sibling career-ops Markdown file. These rows are not included in `GET /state`.
+
+#### GET `/checklist`
+
+Return active checklist items in source order.
+
+**Response**:
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "itemKey": "sha256-hash",
+      "partKey": "part-1",
+      "partTitle": "PART 1 - CORE FUNDAMENTALS",
+      "sectionTitle": "1. Java Core",
+      "category": "Collections",
+      "ordinal": 1,
+      "sourceText": "HashMap internals",
+      "sourceStatus": "🔴",
+      "claimFlags": ["CV"],
+      "done": false,
+      "takeaway": "",
+      "archivedAt": null
+    }
+  ]
+}
+```
+
+#### PATCH `/checklist/:id`
+
+Update one active item's completion state, takeaway, or both.
+
+**Request body**:
+
+```json
+{
+  "done": true,
+  "takeaway": "A HashMap hashes keys into buckets."
+}
+```
+
+**Response**: `{ "item": ChecklistItem }`, using the same fields returned by `GET /checklist`.
+
+**Status codes**:
+- `200`: Success
+- `400`: Invalid ID/body, or the item is missing or archived
+
+The route rejects empty updates, unknown fields, and values with the wrong type.
+
+---
+
 ### Notes
 
 #### GET `/notes`

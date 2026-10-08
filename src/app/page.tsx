@@ -8,6 +8,8 @@ import OpenRecallView from '@/components/OpenRecallView';
 import MCQPracticeView from '@/components/MCQPracticeView';
 import McqTopicPracticeView from '@/components/McqTopicPracticeView';
 import SprintView from '@/components/SprintView';
+import RoadmapsView from '@/components/RoadmapsView';
+import ChecklistView from '@/components/ChecklistView';
 import DraftsView from '@/components/DraftsView';
 import NotesView from '@/components/NotesView';
 import HistoryView from '@/components/HistoryView';
@@ -73,6 +75,10 @@ export default function SPA() {
         />
       </section>
     ),
+    roadmaps: (
+      <RoadmapsView notes={notes} onGenerate={handleGenerateDrafts} />
+    ),
+    checklist: <ChecklistView />,
     sprint: (
       <SprintView
         session={sprintSession}

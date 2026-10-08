@@ -1,3 +1,5 @@
+import type { ChecklistItem, ChecklistItemPatch } from './database';
+
 export interface AppState {
   stats: any;
   notes: any[];
@@ -50,6 +52,12 @@ function post(path: string, body: unknown = {}): Promise<any> {
 export const api = {
   getState(now?: Date): Promise<AppState> {
     return fetcher(`/api/state${now ? `?now=${now.toISOString()}` : ''}`);
+  },
+  getChecklist(): Promise<{ items: ChecklistItem[] }> {
+    return fetcher('/api/checklist');
+  },
+  updateChecklistItem(id: number, patch: ChecklistItemPatch): Promise<{ item: ChecklistItem }> {
+    return fetcher(`/api/checklist/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   },
   getSettings(): Promise<any> {
     return fetcher('/api/settings');

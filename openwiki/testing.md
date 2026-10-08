@@ -35,6 +35,9 @@ The project uses **bun:test** (Bun's built-in test runner) with the following te
 | `test/ai.test.ts` | AI provider interface, output parsing |
 | `test/notion.test.ts` | Notion API sync and filtering |
 | `test/route.test.ts` | API route handlers |
+| `test/checklist-parse.test.ts` | Four-part Markdown parsing, marks, table rows, and stable item keys |
+| `test/checklist-import.test.ts` | Migration, re-import preservation, archive/reactivate, and rollback behavior |
+| `test/checklist-route.test.ts` | Dedicated checklist GET/PATCH routes and request validation |
 | `test/compress.test.ts` | Input compression for token savings |
 
 ## Testing Layers
@@ -202,6 +205,9 @@ Each route test:
 - Notion sync
 - Note generation
 - Settings persistence
+- Revision checklist parsing, import state, and isolated API routes
+
+Checklist tests use inline Markdown fixtures. They do not depend on the sibling personal `career-ops` repository. Persistence tests use in-memory SQLite, and route tests use temporary `DATA_DIR` values instead of `data/app.sqlite`.
 
 ## Writing a New Test
 
