@@ -79,12 +79,60 @@ No Notion setup or API keys needed to try the flow: leave the AI provider set to
 `offline` in Settings and the deterministic local provider generates cards, MCQs,
 and critiques.
 
+## Study Roadmaps
+
+`docs/roadmaps.md` holds the study roadmaps for the interview runway. Register
+them as notes (they are local, not Notion pages):
+
+```sh
+bun scripts/seed-roadmaps.ts            # or: bun scripts/seed-roadmaps.ts <path-to-markdown>
+```
+
+Each `# R<n> — ...` section becomes one note tagged `Roadmap` + the section key.
+Once seeded, they behave like any other note: Generate Drafts, approve into cards,
+and MCQ generation picks them up for the diagnostic. The command is idempotent —
+re-running updates the notes in place instead of duplicating them. Notion sync only
+upserts the pages it fetches, so it never removes them.
+
+To remove them again:
+
+```sql
+DELETE FROM notes WHERE notion_page_id LIKE 'local:roadmap-%';
+```
+
+## Revision Checklist
+
+Use the separate **Checklist** view to work through the four parts of your interview syllabus. Each topic has its own completion checkbox and key takeaway. Your checklist progress and takeaways stay in local SQLite; source status marks remain separate from your progress.
+
+Import the source file from the sibling `career-ops` repository:
+
+```sh
+bun scripts/import-checklist.ts
+```
+
+The default path is `../career-ops/interview-prep/revision-checklist.md`, relative to the app folder. Pass a different file as an argument or set `CHECKLIST_FILE`:
+
+```sh
+bun scripts/import-checklist.ts /path/to/revision-checklist.md
+CHECKLIST_FILE=/path/to/revision-checklist.md bun scripts/import-checklist.ts
+```
+
+In PowerShell, set the environment variable before running the command:
+
+```powershell
+$env:CHECKLIST_FILE = 'C:\path\to\revision-checklist.md'
+bun scripts/import-checklist.ts
+```
+
+The importer stores a local snapshot in `data/app.sqlite`. Re-importing the same items preserves their checked state and takeaways. Removed items are archived, not deleted. The source markdown stays in `career-ops` and is not copied into this repository.
+
 ## Project Structure
 
 ```
 src/
 ├── app/
 │   ├── api/              Next.js API route handlers
+│   │   ├── checklist/    GET active items and PATCH completion/takeaway
 │   │   ├── dashboard/    GET dashboard payload (countdown + heatmap + lapses + due queue)
 │   │   ├── interview-date/  GET/POST Interview Date
 │   │   ├── sprints/      POST start / :id/complete
@@ -105,6 +153,8 @@ src/
 │   ├── SprintView.tsx    Fixed 20-item timed sprint + score summary
 │   ├── DraftsView.tsx    Draft approval queue + Generate MCQs
 │   ├── NotesView.tsx     Synced note list
+│   ├── RoadmapsView.tsx  Compact R1–R10 roadmap disclosures
+│   ├── ChecklistView.tsx Searchable four-part revision checklist
 │   ├── HistoryView.tsx   Merged timeline (open-recall + MCQ reviews)
 │   └── SettingsView.tsx  Notion & AI config form
 ├── hooks/
@@ -113,6 +163,7 @@ src/
 │   ├── ai.ts             AI provider interface & output parsing
 │   ├── api-client.ts     Typed fetch wrappers for the API routes
 │   ├── countdown.ts      Pure countdown-payload assembly (days, sprint avg, green %)
+│   ├── checklist.ts      Revision-checklist markdown parser and stable item keys
 │   ├── database.ts       SQLite CRUD (includes clamp integration in recordReview)
 │   ├── heatmap.ts        Pure computeHeatmap — retention rate, trend, cold tags
 │   ├── lapses.ts         Pure computeLapses — recent again/hard reviews
@@ -126,7 +177,8 @@ src/
     ├── 001-initial.ts     Core schema (notes, drafts, cards, schedules, reviews)
     ├── 002-mcq-questions.ts  mcq_questions table
     ├── 003-mcq-reviews.ts    mcq_reviews table
-    └── 004-sprints-and-diagnostics.ts  sprints + mcq_diagnostics session tables
+    ├── 004-sprints-and-diagnostics.ts  sprints + mcq_diagnostics session tables
+    └── 005-revision-checklist.ts        local checklist and takeaway storage
 ```
 
 ## Configuration
@@ -165,6 +217,15 @@ The self-grade is the only input used for scheduling.
 2. Practice MCQs from the sidebar; options shuffle on load.
 3. Select an answer — correctness is recorded immediately in review history.
 4. Navigate between questions using numbered circles; answered state persists per session.
+
+### Revision Checklist
+
+1. Run `bun scripts/import-checklist.ts` to import the sibling career-ops checklist.
+2. Open **Checklist**, choose a Part, then expand a category.
+3. Check a topic when you finish it. Add a key takeaway and save it.
+4. Search across all Parts when you need to find a specific topic.
+
+The checklist is separate from Notion notes. The existing **Roadmaps** view still contains R1–R10.
 
 ### History
 

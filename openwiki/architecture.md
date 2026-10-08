@@ -46,6 +46,8 @@ Renders the user interface. Responsibilities:
 - `MCQPracticeView.tsx` — Diagnostic mode (15 MCQs with weakness report)
 - `SprintView.tsx` — 20-item timed sprint
 - `DraftsView.tsx` — Draft approval queue
+- `RoadmapsView.tsx` — compact, expandable R1–R10 roadmap list
+- `ChecklistView.tsx` — searchable revision checklist with local progress and takeaways
 - `SettingsView.tsx` — Configuration form for Notion and AI
 - `ui/` — Reusable primitives (Button, Card, Tag, Toast, MetricCard)
 
@@ -75,6 +77,7 @@ Manages the entire application state using React hooks and implements event hand
 - **Session state**: Current sprint/diagnostic session, current card being reviewed
 - **UI state**: Active card, user answer text, showing answer key, filter tag
 - **Feedback state**: Status messages, provider check results
+- **Checklist state**: Loaded only when the Checklist view opens; completion and takeaway edits use dedicated API routes
 
 **Key event handlers**:
 
@@ -121,6 +124,8 @@ Next.js API route handlers that implement REST endpoints. Responsibilities:
 - `POST /api/notion/sync` — Sync Notion database
 - `POST /api/settings` — Save settings
 - `GET /api/notes` — List synced notes
+- `GET /api/checklist` — List active imported checklist items
+- `PATCH /api/checklist/:id` — Update one item's completion and/or takeaway
 
 **Design principle**: Routes are stateless functions that read from database, apply logic, and write results. No state persisted in memory across requests.
 
@@ -151,6 +156,7 @@ Pure, deterministic functions implementing business logic. Responsibilities:
 | `ai.ts` | AI provider interface, output parsing, prompt engineering |
 | `ai-models.ts` | Model info for different providers (pricing, context tokens) |
 | `notion.ts` | Notion API client, database filters, block mapping |
+| `checklist.ts` | Parse the external revision-checklist markdown into stable ordered items |
 | `compress.ts` | Input compression to save tokens before AI calls |
 
 **Design principle**: Pure functions with no side effects. Given the same inputs, always produce the same output. Testable in isolation without database or network.
@@ -163,6 +169,7 @@ SQLite CRUD operations and schema management. Responsibilities:
 
 - Create `AppDatabase` instance with connection pooling
 - Implement CRUD methods for notes, cards, drafts, reviews, MCQs, sprints, diagnostics
+- Import and update checklist items while preserving local completion and takeaway state
 - Run migrations on app startup
 - Enforce foreign key constraints and data integrity
 
@@ -196,9 +203,18 @@ recordReview(cardId, rating, userAnswer, aiFeedback) {
 - Migrations are numbered files in `src/migrations/` exporting `{id, description, up()}`
 - Applied in order via a `_migrations` tracking table
 - New schema changes added as new migration files, never modifying existing ones
+- `005-revision-checklist.ts` adds local checklist storage; it does not modify notes or Notion sync
 - See [Migrations](#migrations) below.
 
 ## Data Flow
+
+### Importing and tracking the revision checklist
+
+1. Run `bun scripts/import-checklist.ts` to read `../career-ops/interview-prep/revision-checklist.md`, or pass a file path or set `CHECKLIST_FILE`.
+2. The pure parser in `src/lib/checklist.ts` reads the four Parts and preserves their source order, authored status marks, and claim labels.
+3. The importer stores the snapshot in `checklist_items`. Re-imports preserve `done` and `takeaway` for matching item keys, and soft-archive removed rows.
+4. Opening **Checklist** calls `GET /api/checklist`. Checkbox and takeaway edits update one row with `PATCH /api/checklist/:id`; they are not included in `/api/state`.
+5. The external Markdown file stays outside this repository. The web app uses the SQLite snapshot after import.
 
 ### User Answers a Card (Open-Recall)
 

@@ -351,6 +351,40 @@ body {
   height: 12px;
 }
 
+.roadmap-content {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.roadmap-item {
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.55;
+}
+
+.roadmap-item::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.roadmap-line {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.roadmap-line strong,
+.roadmap-item strong {
+  color: var(--text);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1767,4 +1801,676 @@ select {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* Revision checklist */
+.checklist-view {
+  max-width: 980px;
+}
+
+.checklist-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.checklist-header > div:first-child {
+  max-width: 62ch;
+}
+
+.checklist-header p {
+  margin-top: 0.35rem;
+}
+
+.checklist-overall {
+  flex: 0 0 180px;
+  display: grid;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.checklist-overall-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-overall-count span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.checklist-overall .label-sm {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.checklist-overall progress {
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--panel-highest);
+}
+
+.checklist-overall progress::-webkit-progress-bar {
+  border-radius: var(--radius-full);
+  background: var(--panel-highest);
+}
+
+.checklist-overall progress::-webkit-progress-value {
+  border-radius: var(--radius-full);
+  background: var(--primary);
+}
+
+.checklist-overall progress::-moz-progress-bar {
+  border-radius: var(--radius-full);
+  background: var(--primary);
+}
+
+.checklist-parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.checklist-part {
+  min-width: 0;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checklist-part:hover,
+.checklist-part.active {
+  border-color: var(--primary);
+  background: var(--panel-high);
+}
+
+.checklist-part.active {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.checklist-part:focus-visible,
+.checklist-group-toggle:focus-visible,
+.checklist-takeaway-toggle:focus-visible,
+.checklist-search:focus-visible,
+.checklist-takeaway-editor textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.checklist-part-number,
+.checklist-part-count {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-part.active .checklist-part-number {
+  color: var(--primary);
+}
+
+.checklist-part-title {
+  width: 100%;
+  overflow: hidden;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.checklist-tools {
+  display: grid;
+  grid-template-columns: minmax(180px, 360px) 1fr;
+  align-items: end;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 var(--space-lg);
+}
+
+.checklist-search-label,
+.checklist-takeaway-editor > span {
+  color: var(--text-variant);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.checklist-search {
+  grid-column: 1;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.checklist-search::placeholder {
+  color: var(--muted);
+}
+
+.checklist-result-count {
+  grid-column: 2;
+  padding-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.checklist-message {
+  margin: 0 0 var(--space-md);
+  padding: 0.7rem 0.85rem;
+  border-left: 3px solid var(--primary);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.checklist-message.is-error {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+.checklist-message.is-success {
+  color: var(--text-variant);
+}
+
+.checklist-message .btn {
+  margin-top: 0.5rem;
+}
+
+.checklist-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.checklist-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.checklist-group-toggle {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 24px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0.75rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.checklist-group-toggle:hover {
+  background: var(--panel-high);
+}
+
+.checklist-group-heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-weight: 600;
+}
+
+.checklist-group-heading small,
+.checklist-context {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.checklist-context {
+  display: inline;
+}
+
+.checklist-group-progress {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.checklist-chevron {
+  color: var(--primary);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.checklist-items {
+  list-style: none;
+  margin: 0;
+  padding: 0 1rem 0.5rem;
+}
+
+.checklist-item {
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(85, 68, 52, 0.55);
+}
+
+.checklist-item-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.65rem;
+}
+
+.checklist-item-check {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  color: var(--text);
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.checklist-item-check input {
+  width: 20px;
+  height: 20px;
+  margin-top: 0.12rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.checklist-item-check input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.checklist-item.is-done .checklist-item-check > span {
+  color: var(--muted);
+}
+
+.checklist-item-check code,
+.checklist-empty code {
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text-variant);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+
+.checklist-item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.checklist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 22px;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-variant);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.checklist-badge.source-status {
+  border-color: rgba(255, 152, 0, 0.45);
+}
+
+.checklist-badge.claim-jd {
+  border-color: rgba(255, 180, 171, 0.5);
+  color: var(--danger);
+}
+
+.checklist-takeaway {
+  margin: 0.45rem 0 0 2rem;
+}
+
+.checklist-takeaway-toggle {
+  padding: 0.2rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-hover);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.checklist-takeaway-preview {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}
+
+.checklist-takeaway-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.checklist-takeaway-editor textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.checklist-takeaway-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.checklist-takeaway-editor small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.checklist-loading-lines {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 720px;
+  margin-top: var(--space-lg);
+}
+
+.checklist-loading-lines span {
+  height: 52px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.checklist-empty {
+  text-align: left;
+}
+
+/* Existing roadmaps: compact until the user opens one. */
+.roadmap-entry {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.roadmap-entry[open] {
+  border-color: var(--muted);
+}
+
+.roadmap-summary {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.roadmap-summary::-webkit-details-marker {
+  display: none;
+}
+
+.roadmap-summary::marker {
+  content: '';
+}
+
+.roadmap-summary:hover {
+  background: var(--panel-high);
+}
+
+.roadmap-summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.roadmap-key {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-right: 1px solid var(--border);
+  color: var(--primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.roadmap-summary-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.roadmap-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.roadmap-excerpt {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roadmap-open-label {
+  color: var(--primary-hover);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.roadmap-close-label,
+.roadmap-entry[open] .roadmap-view-label {
+  display: none;
+}
+
+.roadmap-entry[open] .roadmap-close-label {
+  display: inline;
+}
+
+.roadmap-detail {
+  padding: 0 1rem 1rem 4.7rem;
+}
+
+.roadmap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 78ch;
+  color: var(--text-variant);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.roadmap-content p {
+  margin: 0;
+}
+
+.roadmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roadmap-list li {
+  position: relative;
+  padding-left: 1.1rem;
+}
+
+.roadmap-list li::before {
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+  content: '·';
+  font-size: 1.3rem;
+  line-height: 1.1;
+}
+
+.roadmap-content strong {
+  color: var(--text);
+}
+
+.roadmap-content code {
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+
+.roadmap-detail .actions {
+  margin-top: 1rem;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar h1 {
+    font-size: 1.15rem;
+  }
+
+  .sidebar .brand > .muted {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: 0.25rem;
+    overflow-x: auto;
+    margin: 0 -1rem;
+    padding: 0 1rem 0.25rem;
+    scrollbar-width: thin;
+  }
+
+  .nav button {
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+
+  .nav button.active {
+    border-bottom-color: var(--primary);
+  }
+
+  .content {
+    width: 100%;
+    max-width: none;
+  }
+
+  .main-panel {
+    padding: 1rem;
+  }
+
+  .topbar-stats {
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .checklist-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .checklist-overall {
+    width: 100%;
+    flex: auto;
+    grid-template-columns: auto minmax(80px, 1fr) auto;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: left;
+  }
+
+  .checklist-parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checklist-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .checklist-result-count {
+    grid-column: 1;
+    padding: 0;
+  }
+
+  .checklist-item-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .checklist-item-badges {
+    justify-content: flex-start;
+    margin-left: 2rem;
+  }
+
+  .roadmap-summary {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    padding: 0.8rem;
+  }
+
+  .roadmap-detail {
+    padding: 0 0.8rem 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checklist-part,
+  .roadmap-summary {
+    transition: none;
+  }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 
-export type ViewType = 'dashboard' | 'practice' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
+export type ViewType = 'dashboard' | 'practice' | 'roadmaps' | 'checklist' | 'sprint' | 'diagnostic' | 'mcqPractice' | 'drafts' | 'notes' | 'history' | 'settings';
 
 function readProviderConfigFromForm(data: FormData, prefix: string) {
   return {

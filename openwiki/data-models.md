@@ -61,6 +61,29 @@ INSERT INTO notes (
 );
 ```
 
+#### `checklist_items` (Imported Revision Syllabus)
+
+Stores the local snapshot imported from `career-ops/interview-prep/revision-checklist.md`. These rows are independent of Notion notes. The user's completion checkbox starts unchecked even when the source contains a `✅` mark.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PRIMARY KEY | Local row ID used by checklist API routes |
+| `item_key` | TEXT NOT NULL UNIQUE | Stable hash of Part, hierarchy, and normalized item text |
+| `part_key` | TEXT NOT NULL | `part-1` through `part-4` |
+| `part_title` | TEXT NOT NULL | Source Part heading |
+| `section_title` | TEXT NOT NULL | Source section heading |
+| `category` | TEXT | Optional bold subsection heading |
+| `ordinal` | INTEGER NOT NULL | Source order across the checklist |
+| `source_text` | TEXT NOT NULL | Checklist item text, including useful inline markdown |
+| `source_status` | TEXT | Authored `✅`, `🟡`, `🔴`, or `⚠️` mark; never sets `done` |
+| `claim_flags_json` | TEXT NOT NULL | JSON array such as `CV`, `JD`, or `fund` |
+| `done` | INTEGER NOT NULL DEFAULT 0 | User completion state, stored as 0 or 1 |
+| `takeaway` | TEXT NOT NULL DEFAULT '' | User-written key takeaway |
+| `imported_at` / `updated_at` | TEXT NOT NULL | ISO 8601 timestamps |
+| `archived_at` | TEXT | Set when an item is removed from a later import |
+
+Migration `005-revision-checklist` adds this table and an active-order index. Re-imports update source fields while preserving `done` and `takeaway`; removed rows are soft-archived so saved work is not lost.
+
 #### `card_drafts` (AI-Generated Card Candidates)
 
 Stores AI-generated open-recall card drafts pending approval.
@@ -336,6 +359,7 @@ notes
 settings (key-value store, no foreign keys)
 sprints (not linked to cards/mcqs directly; just stores IDs as JSON)
 mcq_diagnostics (not linked to mcqs directly; just stores IDs as JSON)
+checklist_items (standalone imported source snapshot and local user state)
 card_drafts
   └── cards (one-to-one via source_draft_id, UNIQUE)
 ```
@@ -358,6 +382,24 @@ export interface Note {
   tags: string[];
   notionLastEditedTime: string;
   syncedAt: string;
+}
+
+export interface ChecklistItem {
+  id: number;
+  itemKey: string;
+  partKey: string;
+  partTitle: string;
+  sectionTitle: string;
+  category: string | null;
+  ordinal: number;
+  sourceText: string;
+  sourceStatus: '✅' | '🟡' | '🔴' | '⚠️' | null;
+  claimFlags: string[];
+  done: boolean;
+  takeaway: string;
+  importedAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
 }
 
 export interface Draft {
@@ -450,6 +492,15 @@ export interface MCQDiagnostic {
 ```
 
 ## Data Flow Examples
+
+### Importing the revision checklist
+
+1. Run `bun scripts/import-checklist.ts` or pass the source Markdown path.
+2. The parser turns each supported checklist bullet, ordered-list item, and Part 3 table row into an ordered item.
+3. The importer upserts source fields in a transaction, preserves matching completion and takeaway state, and archives items removed from the source.
+4. `GET /api/checklist` returns active items. `PATCH /api/checklist/:id` saves one item's completion and/or takeaway.
+
+The source remains in the sibling `career-ops` repository. Tests use inline Markdown and never read that personal file.
 
 ### Adding a Card from Notion
 

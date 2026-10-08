@@ -102,6 +102,10 @@ Assumptions:
 - **REQ-026**: The app shall provide question navigation (numbered circles) for MCQ practice with current, answered-correct, answered-incorrect states.
 - **REQ-027**: The app shall support tag filtering across all views: Practice (open recall + MCQs), Drafts, and History.
 - **REQ-028**: The app shall use a numbered SQL migration system (`src/migrations/`) with a `_migrations` tracking table.
+- **REQ-029**: The app shall import the four-part revision checklist from an external Markdown file into a local SQLite snapshot without copying that personal source into tracked app files.
+- **REQ-030**: The app shall persist checklist completion and user-written takeaways independently from authored source status marks.
+- **REQ-031**: Checklist data shall load through dedicated API routes and shall not be added to the general `/api/state` response.
+- **REQ-032**: Re-importing the revision checklist shall preserve state for matching items and soft-archive removed items without deleting their takeaways.
 
 - **SEC-001**: The app shall not commit real Notion tokens, AI API keys, or SQLite data files.
 - **SEC-002**: Secrets shall be stored only in local settings, local environment variables, or local ignored files.
@@ -330,6 +334,12 @@ New migrations should be sequenced after the highest existing migration ID.
 | `POST` | `/api/mcqs/:id/review` | `{ selectedIndex }` | Recorded MCQ review. |
 | `POST` | `/api/notes/generate-all` | Empty object | Drafts and MCQs from all notes. |
 | `POST` | `/api/notes/:id/generate` | Empty object | Drafts and MCQs from one note. |
+| `GET` | `/api/checklist` | None | Active imported checklist items in source order. |
+| `PATCH` | `/api/checklist/:id` | `{ done?, takeaway? }` | Updated active checklist item. |
+
+### 4.13 Revision Checklist Item Contract
+
+Checklist items are stored in `checklist_items`, created by migration 005. Each row keeps source hierarchy, text, authored status/claim markers, and a stable `item_key`, plus local `done` and `takeaway` fields. Re-imports preserve user state for matching keys and soft-archive removed items. The source path is selected from the CLI argument, `CHECKLIST_FILE`, or the documented sibling-repository default.
 
 ## 5. Acceptance Criteria
 
@@ -348,6 +358,10 @@ New migrations should be sequenced after the highest existing migration ID.
 - **AC-013**: Given an MCQ, When the user selects an option, Then the answer is recorded in `mcq_reviews` and the nav circle updates with correct/incorrect state.
 - **AC-014**: Given both open-recall and MCQ reviews exist, When viewing history, Then the user sees a merged timeline with type badges (`Open Recall` / `Multiple Choice`).
 - **AC-015**: Given tag filter controls, When the user selects a tag, Then visible items are filtered to only those matching the selected tag.
+- **AC-016**: Given a valid career-ops revision checklist file, When the user runs the import command, Then all supported Part, section, category, bullet, ordered-list, and table items are stored locally with source order and authored markers.
+- **AC-017**: Given an imported checklist item, When the user checks it or saves a key takeaway, Then the state persists in SQLite independently of the source status mark.
+- **AC-018**: Given a source re-import, When item text and hierarchy are unchanged, Then the app updates source metadata while preserving completion and takeaways; removed items are archived rather than deleted.
+- **AC-019**: Given the Checklist screen, When it loads or updates checklist data, Then it uses dedicated API routes and leaves `/api/state` unchanged.
 
 ## 6. Test Automation Strategy
 
@@ -387,6 +401,7 @@ The app is local-first to keep personal knowledge private, reduce setup scope, a
 
 - **DAT-001**: Notion database pages - Source note data with title, content blocks, topic tags, URL, and last edited timestamp.
 - **DAT-002**: SQLite database file - Local durable data store for notes, drafts, cards, schedules, reviews, and settings.
+- **DAT-003**: Career-ops revision checklist Markdown - External local source imported explicitly into SQLite; never copied into tracked app files.
 
 ### Technology Platform Dependencies
 

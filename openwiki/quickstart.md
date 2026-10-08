@@ -50,6 +50,22 @@ Then open `http://localhost:3000` in your browser. The UI runs in **Mock Data Mo
 
 See [Workflows: Practice Modes](./workflows.md#practice-modes).
 
+### Study Roadmaps and Revision Checklist
+
+- **Roadmaps** keeps the existing R1–R10 plans in compact, expandable sections.
+- **Checklist** tracks the four parts of the interview revision syllabus. Select a Part, open a category, and check off individual topics.
+- Add your own key takeaway to an item. Completion and takeaways are stored in local SQLite, independently of the source's status marks.
+
+Import the current source file from the sibling `career-ops` repository:
+
+```bash
+bun scripts/import-checklist.ts
+# Or pass another source file:
+bun scripts/import-checklist.ts /path/to/revision-checklist.md
+```
+
+The default source path is `../career-ops/interview-prep/revision-checklist.md`. You can override it with the command-line argument or `CHECKLIST_FILE`. The imported snapshot stays in ignored `data/app.sqlite`; the source markdown is not copied into this repository. Re-importing unchanged items preserves completion and takeaways. Removed items are archived.
+
 ### Dashboard
 
 The home dashboard shows:

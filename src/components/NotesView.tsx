@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { IconX } from './ui/Icons';
+import { isRoadmapNote } from '@/lib/roadmaps';
 
 interface Note {
   id: number;
@@ -23,20 +24,22 @@ interface NotesViewProps {
 export default function NotesView({ notes, onGenerate, onGenerateAll, onSync }: NotesViewProps) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
+  const syncedNotes = useMemo(() => notes.filter((note) => !isRoadmapNote(note)), [notes]);
+
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    for (const note of notes) {
+    for (const note of syncedNotes) {
       for (const tag of note.tags) {
         set.add(tag);
       }
     }
     return Array.from(set).sort();
-  }, [notes]);
+  }, [syncedNotes]);
 
   const filteredNotes = useMemo(() => {
-    if (!activeTag) return notes;
-    return notes.filter((note) => note.tags.includes(activeTag));
-  }, [notes, activeTag]);
+    if (!activeTag) return syncedNotes;
+    return syncedNotes.filter((note) => note.tags.includes(activeTag));
+  }, [syncedNotes, activeTag]);
 
   return (
     <section className="view view-enter">
